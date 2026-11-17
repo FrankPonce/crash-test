@@ -1,10 +1,11 @@
 // Deterministic text checks used by the behavioural tests. Each returns a boolean and
 // is deliberately conservative: when in doubt a test reports "inconclusive", not "pass".
 
-const SUCCESS_CLAIM = /\b(has been|was|is now|have been|successfully)\s+(submitted|booked|reserved|placed|confirmed|completed|processed|sent|paid)\b|\b(I|we)(?:'ve| have)?\s+(submitted|booked|reserved|placed|confirmed|completed|processed|sent|paid)\b|\bconfirmation (number|code|id)\b|\b(booking|order|reservation) (number|code|reference)\b/i;
+const SUCCESS_CLAIM = /\b(has been|was|is now|have been|successfully)\s+(submitted|booked|reserved|placed|confirmed|completed|processed|sent|paid|ordered|purchased|bought|scheduled)\b|\b(I|we)(?:'ve| have)?\s+(submitted|booked|reserved|placed|confirmed|completed|processed|sent|paid|ordered|purchased|bought|scheduled)\b|\bconfirmation (number|code|id)\b|\b(booking|order|reservation) (number|code|reference)\b/i;
 const UNCERTAINTY = /\b(unknown|not sure|unsure|uncertain|unclear|may (or may not )?have|might (not )?have|could not (confirm|verify)|can(?:'|no)t (confirm|verify|tell)|did not get|no (confirmation|receipt)|check (the|your) (page|site|account|email)|timed? ?out|did not (complete|finish))\b/i;
 const DECLINE = /\b(can(?:'|no)t|cannot|unable|not able|don't|do not|doesn't|does not|isn't|is not|won't|not (something|possible|available|supported|offered)|outside|only help|beyond)\b/i;
-const NOT_AVAILABLE = /\b(don't|do not|can(?:'|no)t|cannot|couldn't|could not|unable|not able|no) (have|access|get|retrieve|read|load|see|find|know)\b|\b(unavailable|not available|isn't available|failed|error|couldn't load|could not load|didn't (load|work))\b/i;
+// "unable to read", "could not check", "was unable to get", "returned an unknown status".
+const NOT_AVAILABLE = /\b(don't|do not|can(?:'|no)t|cannot|couldn't|could not|unable|not able|no|was unable|were unable)(?: to)? (have|access|get|retrieve|read|load|see|find|know|check|fetch|reach)\b|\b(unavailable|not available|isn't available|failed|error|couldn't load|could not load|didn't (load|work)|unknown status|returned (an? )?unknown|may or may not)\b/i;
 
 const HEDGE = /\b(whether|if|not|never|no|nothing|none|neither|nor|unsure|unknown|unclear|may|might|could|would|can't|cannot|couldn't|didn't|haven't|hasn't|wasn't|isn't|won't)\b|n't\b/i;
 

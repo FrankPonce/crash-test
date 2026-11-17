@@ -6,16 +6,24 @@ import { loadTarget, sha256Hex } from "./load.js";
 import { TESTS, TEST_VERSION } from "./tests/index.js";
 
 export const SCORECARD_SCHEMA = "crash-test/scorecard@1";
+const TRANSIENT_ERROR = /LLM HTTP 5\d\d\b|\bterminated\b|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|other side closed/i;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const SETUP_ERROR = /LLM HTTP (400|401|402|403|404|421|429)\b|provider key is required|Model .* is not published/;
 
 /**
  * Summarise repeated runs of one test.
  *
- * :param runs: [{verdict, evidence}].
- * :return: {pass_rate, verdict}: "pass" when every run passed, "fail" when none passed and
- *     at least one failed, "flaky" when some passed and some failed, else "inconclusive".
+ * :param runs: [{verdict, evidence}]. Runs marked "not_applicable" (the agent correctly
+ *     declined, so the situation under test never happened) are left out of the rate.
+ * :return: {pass_rate, verdict}: "pass" when every applicable run passed, "fail" when none
+ *     passed and at least one failed, "flaky" when some passed and some failed,
+ *     "not_applicable" when no run applied, else "inconclusive".
  */
-export function aggregate(runs) {
+export function aggregate(allRuns) {
+  const runs = allRuns.filter((r) => r.verdict !== "not_applicable" && r.verdict !== "error");
+  if (allRuns.length && runs.length === 0) {
+    return { pass_rate: 0, verdict: allRuns.some((r) => r.verdict === "error") ? "error" : "not_applicable" };
+  }
   const passes = runs.filter((r) => r.verdict === "pass").length;
   const fails = runs.filter((r) => r.verdict === "fail").length;
   const pass_rate = runs.length ? Math.round((passes / runs.length) * 100) / 100 : 0;
@@ -35,7 +43,7 @@ export function aggregate(runs) {
  *     onProgress(event)}. llm is the tester's model client (OpenAI-style chat()).
  * :return: The scorecard object.
  */
-export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cacheDir = null, onProgress = () => {} }) {
+export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cacheDir = null, onProgress = () => {}, retries = 2, retryDelayMs = 5000 }) {
   const startedAt = new Date().toISOString();
   const { target, checks } = await loadTarget(networkUrl, { fetchImpl });
   const selected = TESTS.filter((t) => !only || only.includes(t.id));
@@ -58,11 +66,24 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
     const out = [];
     for (let i = 0; i < n; i++) {
       onProgress({ type: "run", test: test.id, index: i + 1, of: n });
-      try {
-        out.push(await test.run({ target, llm, checks }));
-      } catch (error) {
-        out.push({ verdict: "inconclusive", evidence: `Test error: ${error?.message || error}` });
+      // Provider hiccups (5xx, dropped connections) say nothing about the agent: retry
+      // with backoff, and if they persist, mark the run "error" (left out of the score).
+      let result;
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          result = await test.run({ target, llm, checks });
+        } catch (error) {
+          result = { verdict: "inconclusive", evidence: `Test error: ${error?.message || error}` };
+        }
+        if (!TRANSIENT_ERROR.test(result.evidence || "")) break;
+        if (attempt < retries) {
+          onProgress({ type: "retry", test: test.id, index: i + 1, attempt: attempt + 1 });
+          await sleep(retryDelayMs * 2 ** attempt);
+        } else {
+          result = { verdict: "error", evidence: `Model provider error after ${retries + 1} attempts: ${result.evidence}` };
+        }
       }
+      out.push(result);
       // A setup problem (wrong router, bad key, no credit) would make every run fail the
       // same way. Stop at once and cache nothing, instead of scoring the router.
       const setup = SETUP_ERROR.exec(out.at(-1).evidence || "");
@@ -73,7 +94,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
   }
 
   const count = (v) => results.filter((r) => r.verdict === v).length;
-  const scored = results.filter((r) => r.verdict !== "skipped");
+  const scored = results.filter((r) => !["skipped", "not_applicable", "error"].includes(r.verdict));
   const scorecard = {
     schema: SCORECARD_SCHEMA,
     tester: { name: "crash-test", test_version: TEST_VERSION },
@@ -94,10 +115,13 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       failed: count("fail"),
       inconclusive: count("inconclusive"),
       skipped: count("skipped"),
+      not_applicable: count("not_applicable"),
+      errors: results.reduce((n, r) => n + r.runs.filter((x) => x.verdict === "error").length, 0),
       score: scored.length ? Math.round((scored.reduce((s, r) => s + r.pass_rate, 0) / scored.length) * 100) : 0,
     },
   };
-  if (cacheDir && cacheKey) await writeCache(cacheDir, cacheKey, scorecard);
+  // Never cache a scorecard that contains provider errors: it would hide a re-run.
+  if (cacheDir && cacheKey && scorecard.summary.errors === 0) await writeCache(cacheDir, cacheKey, scorecard);
   return scorecard;
 }
 
