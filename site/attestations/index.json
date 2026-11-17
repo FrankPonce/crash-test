@@ -2,13 +2,13 @@
   "attestations": [
     {
       "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
-      "network_sha256": "da42ec17b58edb1ac146382849d821c93e461ad9ca2194b10335b06e374db153",
+      "network_sha256": "6ec92be11b8f9cb1ba5faa5765334aa1371ab15481423156f57c42b40a50260c",
       "score": 100,
       "model": "alibaba/qwen3.8-flash",
-      "iat": "2026-11-17T20:25:43.473Z",
-      "exp": "2026-12-17T20:25:43.473Z",
-      "jws": "attestations/charge-frankmp12357-workers-dev-charge-planner-da42ec17b58e.jws",
-      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-da42ec17b58e.scorecard.json",
+      "iat": "2026-11-17T22:43:49.261Z",
+      "exp": "2026-12-17T22:43:49.261Z",
+      "jws": "attestations/charge-frankmp12357-workers-dev-charge-planner-6ec92be11b8f.jws",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-6ec92be11b8f.scorecard.json",
       "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg"
     },
     {

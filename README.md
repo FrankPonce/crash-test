@@ -64,7 +64,8 @@ All 12 tests (test version 9), 3 runs each, four models, 17 Nov 2026
 
 The well-built network wins on every model. "Admits missing data" alone separates them
 (12/12 runs vs 0/12). But even Charge leaks a visitor's booking code and phone number to a
-partner on 3 of 4 models (F31), and the runtime answers with nothing at all when an agent
+partner on 3 of 4 models (F31; one added sentence fixed it, and Charge now scores 100 on all
+12 tests with a fresh signed attestation, F33), and the runtime answers with nothing at all when an agent
 runs out of steps (F32). Trust depends on the network *and* the model that runs it. More in
 [FINDINGS.md](FINDINGS.md). The earlier 7-test matrix is in
 [results/2026-11-17-matrix.md](results/2026-11-17-matrix.md).
