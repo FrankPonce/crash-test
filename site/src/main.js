@@ -12,6 +12,8 @@ import { TESTS } from "../../src/tests/index.js";
 import { verifyAttestation } from "agent-trust-kit/attestation";
 
 const SITE_MODEL = "@cf/openai/gpt-oss-20b";
+// Grades unclear runs only (FINDINGS F22). A different model from SITE_MODEL, same free proxy.
+const SITE_JUDGE = "@cf/zai-org/glm-4.7-flash";
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, attrs = {}, ...kids) => {
   const e = document.createElement(tag);
@@ -44,7 +46,8 @@ async function chooseModel() {
     if (!resp.ok) throw new Error((await resp.json().catch(() => ({})))?.error?.message || `Could not start a session (HTTP ${resp.status}).`);
     const { token } = await resp.json();
     const client = new LlmClient({ baseUrl: new URL("api/llm/v1", location.href).href.replace(/\/$/, ""), apiKey: token });
-    return { llm: fixedModel(client, SITE_MODEL), model: { name: SITE_MODEL, routerHost: `${location.host} (Workers AI)` }, runs: 1 };
+    const routerHost = `${location.host} (Workers AI)`;
+    return { llm: fixedModel(client, SITE_MODEL), model: { name: SITE_MODEL, routerHost }, judge: { llm: fixedModel(client, SITE_JUDGE), model: { name: SITE_JUDGE, routerHost } }, runs: 1 };
   }
   const router = $("#router").value.trim().replace(/\/$/, "");
   const key = $("#key").value.trim();
@@ -91,6 +94,7 @@ async function run(event) {
         if (!row) return;
         if (e.type === "run") row.className = "active";
         if (e.type === "result") row.querySelector(".runs").append(el("span", { class: `chip ${VERDICT[e.verdict]?.[0] ?? "muted"}`, text: VERDICT[e.verdict]?.[1] ?? e.verdict }));
+        if (e.type === "judge") row.querySelector(".runs").append(el("span", { class: "chip muted", text: "judge" }));
         if (e.type === "retry") row.querySelector(".runs").append(el("span", { class: "chip muted", text: "retry" }));
       },
     });
@@ -109,14 +113,14 @@ function showScorecard(card) {
   const results = $("#results");
   results.hidden = false;
   $("#score").textContent = card.summary.score;
-  $("#score-meta").textContent = `${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test · unsigned`;
+  $("#score-meta").textContent = `${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test${card.judge ? ` · judge ${card.judge.name}` : ""} · unsigned`;
   $("#hash").textContent = card.target.network_sha256 ? `network sha256 ${card.target.network_sha256}` : "network did not load";
   const body = $("#tests");
   body.replaceChildren(...card.tests.map((t) => {
     const [cls, label] = VERDICT[t.verdict] ?? ["muted", t.verdict];
     const applicable = t.runs.filter((r) => !["not_applicable", "error"].includes(r.verdict));
     const passes = applicable.filter((r) => r.verdict === "pass").length;
-    const details = el("details", {}, el("summary", { text: "Evidence" }), ...t.runs.map((r, i) => el("p", {}, el("strong", { text: `Run ${i + 1}: ${VERDICT[r.verdict]?.[1] ?? r.verdict}. ` }), r.evidence)));
+    const details = el("details", {}, el("summary", { text: "Evidence" }), ...t.runs.map((r, i) => el("p", {}, el("strong", { text: `Run ${i + 1}: ${VERDICT[r.verdict]?.[1] ?? r.verdict}. ` }), r.evidence, r.judged_by ? el("em", { text: ` Judged by ${r.judged_by}: ${r.judge_reason ?? r.judge_error}` }) : null)));
     return el("tr", {}, el("td", {}, el("strong", { text: t.title }), el("br"), el("code", { text: t.id })), el("td", {}, el("span", { class: `chip ${cls}`, text: label })), el("td", { text: applicable.length ? `${passes}/${applicable.length}` : "–" }), el("td", {}, details));
   }));
   const blob = new Blob([JSON.stringify(card, null, 2)], { type: "application/json" });

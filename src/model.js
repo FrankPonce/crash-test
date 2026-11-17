@@ -14,7 +14,7 @@ export const DEFAULT_MODEL = "alibaba/qwen3.8-flash";
  * CRASHTEST_MODEL   Model name (default: alibaba/qwen3.8-flash)
  *
  * :param env: The environment (process.env).
- * :return: {llm, model: {name, routerHost}}.
+ * :return: {llm, model: {name, routerHost}, client}.
  * :raises Error: When no API key is set.
  */
 export function modelFromEnv(env = process.env) {
@@ -23,7 +23,29 @@ export function modelFromEnv(env = process.env) {
   const name = env.CRASHTEST_MODEL || DEFAULT_MODEL;
   if (!apiKey) throw new Error("Set CRASHTEST_API_KEY (and optionally CRASHTEST_ROUTER, CRASHTEST_MODEL), for example in a .env file next to package.json.");
   const client = new LlmClient({ baseUrl, apiKey });
-  return { llm: fixedModel(client, name), model: { name, routerHost: new URL(baseUrl).host } };
+  return { llm: fixedModel(client, name), model: { name, routerHost: new URL(baseUrl).host }, client };
+}
+
+/** Judge candidates, in order of preference. The first one that is not under test is used. */
+export const DEFAULT_JUDGES = ["deepseek/deepseek-v4.1-flash", "alibaba/qwen3.8-flash"];
+
+/**
+ * The judge for inconclusive runs (FINDINGS F22), on the same router as the tester.
+ *
+ * CRASHTEST_JUDGE_MODELS  Comma-separated candidates (default DEFAULT_JUDGES); "off" disables.
+ *
+ * :param client: The router client (from modelFromEnv).
+ * :param testedModel: The model under test; the judge is never the same model.
+ * :param env: The environment.
+ * :return: {llm, model: {name, routerHost}} or null.
+ */
+export function judgeFromEnv(client, testedModel, env = process.env) {
+  const raw = (env.CRASHTEST_JUDGE_MODELS ?? "").trim();
+  if (raw.toLowerCase() === "off") return null;
+  const candidates = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : DEFAULT_JUDGES;
+  const name = candidates.find((c) => c !== testedModel);
+  if (!name) return null;
+  return { llm: fixedModel(client, name), model: { name, routerHost: new URL(client.baseUrl).host } };
 }
 
 /**

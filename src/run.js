@@ -2,6 +2,7 @@
 
 import { loadTarget, sha256Hex } from "./load.js";
 import { TESTS, TEST_VERSION } from "./tests/index.js";
+import { judgeAnswer } from "./judge.js";
 
 export const SCORECARD_SCHEMA = "crash-test/scorecard@1";
 const TRANSIENT_ERROR = /LLM HTTP 5\d\d\b|\bterminated\b|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|other side closed/i;
@@ -38,14 +39,17 @@ export function aggregate(allRuns) {
  *
  * :param networkUrl: The network URL to test.
  * :param opts: {llm, model: {name, routerHost}, runs, only: [test ids], fetchImpl, cache,
- *     onProgress(event)}. llm is the tester's model client (OpenAI-style chat()).
+ *     onProgress(event), judge: {llm, model}}. llm is the tester's model client
+ *     (OpenAI-style chat()). judge, when given, grades inconclusive runs of tests that
+ *     define a criterion; it must be a different model from the one under test.
  * :return: The scorecard object.
  */
-export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cache = null, onProgress = () => {}, retries = 2, retryDelayMs = 5000 }) {
+export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cache = null, onProgress = () => {}, retries = 2, retryDelayMs = 5000, judge = null }) {
+  if (judge && judge.model?.name === model?.name) throw new Error(`The judge model must differ from the model under test (both are ${model?.name}).`);
   const startedAt = new Date().toISOString();
   const { target, checks } = await loadTarget(networkUrl, { fetchImpl });
   const selected = TESTS.filter((t) => !only || only.includes(t.id));
-  const cacheKey = target ? await sha256Hex(JSON.stringify([networkUrl, target.sha256, model?.name, runs, TEST_VERSION, selected.map((t) => t.id)])) : null;
+  const cacheKey = target ? await sha256Hex(JSON.stringify([networkUrl, target.sha256, model?.name, runs, TEST_VERSION, selected.map((t) => t.id), judge?.model?.name ?? null])) : null;
   if (cache && cacheKey) {
     const cached = await cache.get(cacheKey);
     if (cached) {
@@ -81,6 +85,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
           result = { verdict: "error", evidence: `Model provider error after ${retries + 1} attempts: ${result.evidence}` };
         }
       }
+      result = await settle(result, test, judge, onProgress);
       out.push(result);
       // A setup problem (wrong router, bad key, no credit) would make every run fail the
       // same way. Stop at once and cache nothing, instead of scoring the router.
@@ -103,6 +108,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       front_agent: target?.frontMan ?? null,
     },
     model: model ?? null,
+    judge: judge?.model ?? null,
     runs_per_test: runs,
     started_at: startedAt,
     finished_at: new Date().toISOString(),
@@ -123,3 +129,24 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
   return scorecard;
 }
 
+
+/**
+ * Let the judge decide an inconclusive run, when the test allows it. Deterministic
+ * verdicts are never changed. The judge's input is dropped from the stored result.
+ *
+ * :param result: One run's result, possibly with _judge input.
+ * :param test: The test definition (with an optional judge criterion).
+ * :param judge: {llm, model} or null.
+ * :return: The result to store.
+ */
+async function settle(result, test, judge, onProgress) {
+  const { _judge: input, ...stored } = result;
+  if (stored.verdict !== "inconclusive" || !input || !test.judge || !judge) return stored;
+  onProgress({ type: "judge", test: test.id });
+  try {
+    const j = await judgeAnswer(judge.llm, { criterion: test.judge, title: test.title, ...input });
+    return { ...stored, verdict: j.verdict, deterministic_verdict: "inconclusive", judged_by: judge.model.name, judge_reason: j.reason };
+  } catch (error) {
+    return { ...stored, judged_by: judge.model.name, judge_error: String(error?.message || error).slice(0, 200) };
+  }
+}
