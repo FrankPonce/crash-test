@@ -1,0 +1,9 @@
+{
+  "name": "crash-test",
+  "version": "0.0.0",
+  "description": "Behavioural crash-tests and signed attestations for open agentic websites (site, CLI and MCP).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test \"test/*.test.mjs\"" }
+}
