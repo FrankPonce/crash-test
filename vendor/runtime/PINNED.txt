@@ -1,0 +1,5 @@
+Source: https://github.com/cognizant-ai-labs/agentic-web
+Path: skills/agentify-website
+Commit: 7817c1f75b8d4f497c869540212be17dda94dcae (2026-11-16)
+Vendored: 2026-11-17
+Do not edit. Update only by re-copying from a newer pinned commit.
