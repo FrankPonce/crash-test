@@ -95,6 +95,26 @@ npm run crash-test -- <network-url> --runs 5 --json > scorecard.json
 
 Results are cached per (URL, network hash, model, test version) in `.crash-test-cache/`.
 
+## Results database and API
+
+Every scorecard can be stored in a public, read-only results database (Cloudflare D1, schema in
+[`worker/migrations/`](worker/migrations/)): one row per run, one row per test.
+
+```bash
+# Read (no key, CORS open)
+curl "https://crashtest.frankmp12357.workers.dev/api/runs?network_url=https://charge.frankmp12357.workers.dev/charge_planner&limit=5"
+curl "https://crashtest.frankmp12357.workers.dev/api/runs/<run id>"   # per-test results + full scorecard
+
+# Write (needs INGEST_TOKEN, the Worker's upload secret)
+npm run crash-test -- <network-url> --upload
+node --env-file=.env scripts/ingest.mjs            # backfill results/*.json and attestation scorecards
+```
+
+A run's id is the SHA-256 of its canonical scorecard, so uploads are idempotent. `matrix.mjs`
+and `publish-attestation.mjs` upload automatically when `INGEST_TOKEN` is set. Uploading is
+separate from signing: the token only adds data, and signed attestations still come only
+from the tester key, offline.
+
 ## Test fixtures
 
 - **Charge** (well-behaved): https://charge.frankmp12357.workers.dev/charge_planner

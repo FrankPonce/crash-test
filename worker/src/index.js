@@ -4,11 +4,18 @@
 //   POST /api/session                  -> {token, expiresAt, model}  (rate-limited per IP)
 //   GET  /api/llm/v1/models            -> OpenAI-style model list (the runtime checks it)
 //   POST /api/llm/v1/chat/completions  -> Workers AI, OpenAI format, streamed or not
+//   POST /api/results                  -> store a scorecard (Bearer INGEST_TOKEN) {id, created}
+//   GET  /api/runs?network_url=&model=&limit=  -> recent runs (public, read-only, CORS *)
+//   GET  /api/runs/<id>                -> one run, its per-test results and the scorecard
 //
-// Everything else is a static asset. The API sends no CORS headers: only this site's own
-// page may use the default model. Other sites that run this network use their own model.
+// Everything else is a static asset. The model API sends no CORS headers: only this site's
+// own page may use the default model. Other sites that run this network use their own model.
 
 import { issueSession, verifySession } from "./session.js";
+import { getRun, ingestScorecard, listRuns, SOURCES, validateScorecard } from "./results.js";
+
+const MAX_SCORECARD_BYTES = 1024 * 1024;
+const PUBLIC = { "access-control-allow-origin": "*" };
 
 export const ALLOWED_MODELS = ["@cf/openai/gpt-oss-20b", "@cf/zai-org/glm-4.7-flash"];
 const MAX_BODY_BYTES = 256 * 1024;
@@ -26,6 +33,9 @@ export default {
       if (url.pathname === "/api/session" && request.method === "POST") return await session(request, env);
       if (url.pathname === "/api/llm/v1/models" && request.method === "GET") return models();
       if (url.pathname === "/api/llm/v1/chat/completions" && request.method === "POST") return await chat(request, env);
+      if (url.pathname === "/api/results" && request.method === "POST") return await postResults(request, env);
+      if (url.pathname === "/api/runs" && request.method === "GET") return await getRuns(url, env);
+      if (url.pathname.startsWith("/api/runs/") && request.method === "GET") return await getOneRun(url, env);
       if (url.pathname.startsWith("/api/")) return fail(404, "Not found.");
       return env.ASSETS.fetch(request);
     } catch (error) {
@@ -34,6 +44,53 @@ export default {
     }
   },
 };
+
+// ---- results database (M4.1) ------------------------------------------------------------
+
+/** Constant-time string comparison, so the token can't be guessed by timing. */
+function sameSecret(a, b) {
+  const x = new TextEncoder().encode(String(a));
+  const y = new TextEncoder().encode(String(b));
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
+
+async function postResults(request, env) {
+  if (!env.DB || !env.INGEST_TOKEN) return fail(503, "Uploads are not configured on this server.");
+  const auth = request.headers.get("authorization") || "";
+  if (!auth.startsWith("Bearer ") || !sameSecret(auth.slice(7), env.INGEST_TOKEN)) return fail(401, "A valid upload token is required.");
+  const length = Number(request.headers.get("content-length") || 0);
+  if (length > MAX_SCORECARD_BYTES) return fail(413, "The scorecard is too large.");
+  const text = await request.text();
+  if (text.length > MAX_SCORECARD_BYTES) return fail(413, "The scorecard is too large.");
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return fail(400, "The body must be JSON: {source, scorecard}.");
+  }
+  if (!SOURCES.includes(body?.source)) return fail(400, `source must be one of ${SOURCES.join(", ")}.`);
+  const check = validateScorecard(body.scorecard);
+  if (!check.ok) return fail(400, `Not a valid scorecard: ${check.reason}.`);
+  const { id, created } = await ingestScorecard(env.DB, body.scorecard, { source: body.source });
+  return json(created ? 201 : 200, { id, created });
+}
+
+async function getRuns(url, env) {
+  if (!env.DB) return fail(503, "The results database is not configured.");
+  const q = url.searchParams;
+  const runs = await listRuns(env.DB, { network_url: q.get("network_url"), model: q.get("model"), limit: q.get("limit") });
+  return json(200, { runs }, PUBLIC);
+}
+
+async function getOneRun(url, env) {
+  if (!env.DB) return fail(503, "The results database is not configured.");
+  const id = url.pathname.slice("/api/runs/".length);
+  if (!/^[0-9a-f]{64}$/.test(id)) return fail(404, "Not found.");
+  const run = await getRun(env.DB, id);
+  return run ? json(200, run, PUBLIC) : fail(404, "No run with that id.");
+}
 
 function clientIp(request) {
   return request.headers.get("cf-connecting-ip") || "local";

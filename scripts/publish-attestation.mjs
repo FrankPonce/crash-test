@@ -11,6 +11,7 @@ import { attest, signingKeyFromEnv } from "../src/attest.js";
 import { fileCache } from "../src/file-cache.js";
 import { modelFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
+import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
 
 const url = process.argv[2];
 const runsIdx = process.argv.indexOf("--runs");
@@ -76,4 +77,10 @@ index.attestations.push({
 });
 index.attestations.sort((a, b) => a.sub.localeCompare(b.sub));
 await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+// With INGEST_TOKEN set, the attested scorecard also goes into the results database.
+const upload = uploadFromEnv();
+if (upload) {
+  const u = await uploadScorecard(scorecard, { source: "attestation", ...upload });
+  console.log(`Uploaded run ${u.id.slice(0, 12)} (${u.created ? "new" : "already stored"}).`);
+}
 console.log(`Published ${statement.sub}: score ${statement.score} on ${statement.model.name}, valid until ${statement.exp}.\nNow deploy: cd worker && npx wrangler deploy`);

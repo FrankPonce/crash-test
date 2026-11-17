@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache] [--no-judge] [--attest out.jws]
+// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.jws]
 
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -8,6 +8,7 @@ import { crashTest } from "./run.js";
 import { fileCache } from "./file-cache.js";
 import { judgeFromEnv, modelFromEnv } from "./model.js";
 import { TESTS } from "./tests/index.js";
+import { uploadFromEnv, uploadScorecard } from "./upload.js";
 
 const ICON = { pass: "PASS ", fail: "FAIL ", flaky: "FLAKY", inconclusive: "?    ", skipped: "SKIP ", not_applicable: "N/A  ", error: "ERROR" };
 
@@ -20,6 +21,7 @@ function parseArgs(argv) {
     else if (a === "--json") opts.json = true;
     else if (a === "--no-cache") opts.cache = false;
     else if (a === "--no-judge") opts.judge = false;
+    else if (a === "--upload") opts.upload = true;
     else if (a === "--attest") opts.attest = argv[++i];
     else if (a === "-h" || a === "--help") opts.help = true;
     else if (!opts.url) opts.url = a;
@@ -30,12 +32,15 @@ function parseArgs(argv) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help || !opts.url) {
-    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache] [--no-judge] [--attest out.jws]\n"
+    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.jws]\n"
       + "Model: CRASHTEST_API_KEY, CRASHTEST_ROUTER (default hosted Otari), CRASHTEST_MODEL.\n"
       + "Judge for unclear runs: CRASHTEST_JUDGE_MODELS (comma-separated; the first one not under test is used; \"off\" disables).\n"
+      + "Upload: INGEST_TOKEN, CRASHTEST_RESULTS (default: the public tester's /api/results).\n"
       + "Attest: CRASHTEST_SIGNING_KEY (tester private JWK file), CRASHTEST_ORIGIN (where its key directory is served).");
     process.exit(opts.url ? 0 : 2);
   }
+  const upload = opts.upload ? uploadFromEnv() : null;
+  if (opts.upload && !upload) throw new Error("--upload needs INGEST_TOKEN (for example in .env).");
   const needsModel = TESTS.some((t) => t.usesModel && (!opts.only || opts.only.includes(t.id)));
   const { llm, model, client } = needsModel ? modelFromEnv() : { llm: null, model: { name: "(none: static only)", routerHost: "-" } };
   const judge = needsModel && opts.judge ? judgeFromEnv(client, model.name) : null;
@@ -70,6 +75,10 @@ async function main() {
     await writeFile(opts.attest, `${jws}\n`);
     process.stderr.write(`\nAttestation written to ${opts.attest}: ${statement.sub} (sha256 ${statement.network_sha256.slice(0, 12)}…) `
       + `score ${statement.score} on ${statement.model.name}, valid until ${statement.exp}\n`);
+  }
+  if (upload) {
+    const r = await uploadScorecard(scorecard, { source: "cli", ...upload });
+    process.stderr.write(`\nUploaded run ${r.id.slice(0, 12)}… (${r.created ? "new" : "already stored"}).\n`);
   }
   process.exit(scorecard.summary.failed ? 1 : 0);
 }

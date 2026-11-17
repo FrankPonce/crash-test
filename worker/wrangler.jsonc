@@ -11,6 +11,12 @@
     "not_found_handling": "404-page"
   },
   "ai": { "binding": "AI" },
+  // Results database (M4.1). Schema: migrations/. Apply with
+  //   npx wrangler d1 migrations apply crashtest --remote
+  // Uploads need a bearer token: npx wrangler secret put INGEST_TOKEN
+  "d1_databases": [
+    { "binding": "DB", "database_name": "crashtest", "database_id": "a2b69085-d9aa-49ae-a357-bb1a47361708", "migrations_dir": "migrations" }
+  ],
   // A full browser run is about 25 model calls, so limits are per session and per IP.
   "ratelimits": [
     { "name": "SESSION_LIMIT", "namespace_id": "2001", "simple": { "limit": 5, "period": 60 } },

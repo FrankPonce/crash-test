@@ -8,6 +8,10 @@ import { fixedModel, judgeFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { fileCache } from "../src/file-cache.js";
 import { TEST_VERSION } from "../src/tests/index.js";
+import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
+
+// With INGEST_TOKEN set, each scorecard is also stored in the results database.
+const upload = uploadFromEnv();
 
 const DEFAULT_MODELS = ["alibaba/qwen3.8-flash", "deepseek/deepseek-v4.1-flash", "mistralai/ministral-3-8b", "meta/llama-3.1-8b-instruct"];
 const DEFAULT_SITES = [
@@ -47,6 +51,14 @@ for (const model of models) {
         cache: fileCache(path.resolve(".crash-test-cache")),
         onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },
       });
+      if (upload) {
+        try {
+          const u = await uploadScorecard(card, { source: "matrix", ...upload });
+          process.stderr.write(`  uploaded ${u.id.slice(0, 12)} (${u.created ? "new" : "already stored"})\n`);
+        } catch (error) {
+          process.stderr.write(`  upload failed: ${error.message}\n`);
+        }
+      }
       await writeFile(path.join(outDir, `${prefix}-${siteName}-${model.replace(/[^\w.-]+/g, "_")}.json`), JSON.stringify(card, null, 2));
       rows.push({ model, site: siteName, card });
     } catch (error) {
