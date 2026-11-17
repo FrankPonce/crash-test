@@ -239,6 +239,22 @@ engine, two runtimes, different observability: test both.
 
 ## Identity
 
+### F34. Verifying a signature inside a Worker exposed two edge-only problems **[eng] [spec]**
+*18 Nov 2026 · MCP `run_static_check` / `get_attestation` on the live tester Worker; agent-trust-kit `97a6a9d`*
+
+The first live MCP calls reported Charge's valid signature as a **fail**, and couldn't load
+our own sites at all:
+1. agent-trust-kit fetched key directories with `redirect: "error"` (refuse redirects).
+   Cloudflare Workers reject that value outright. Now `redirect: "manual"` plus an explicit
+   check for a 3xx or an opaque redirect: same policy in Node, browsers and Workers, with a test.
+2. A Worker's `fetch()` to another `*.workers.dev` Worker on the same account returned 404
+   until `global_fetch_strictly_public` was set.
+
+Node tests, browser runs and the CLI all passed before; only the third runtime found it.
+Same lesson as F27: identity and trust checks must be tested in every runtime that will run
+them. For the spec: if verifiers are expected to fetch key directories, the spec should say
+whether redirects are allowed (we say no: keys must come from the origin itself).
+
 ### F23. Domain-signed agent networks work on today's web with existing standards only **[pitch] [spec]**
 *17 Nov 2026 · `agent-trust-kit`, live: https://charge.frankmp12357.workers.dev/charge_planner*
 

@@ -122,3 +122,96 @@ export async function getRun(db, id) {
   const { scorecard_json, ...run } = row;
   return { run, results, scorecard: JSON.parse(scorecard_json) };
 }
+
+// ---- queries for the MCP tools (M4.2) -----------------------------------------------------
+
+/** Runs that only checked files have no model; keep them apart from behavioural runs. */
+export const STATIC_ONLY = "(none: static only)";
+
+/**
+ * Find the stored network URL a user meant: exact, without a trailing slash, with https://
+ * added, or by network name (the last path part, such as "spot_deals").
+ *
+ * :param db: A D1 database.
+ * :param input: What the user typed.
+ * :return: {url} or {candidates: [url]} when nothing or several match.
+ */
+export async function resolveNetwork(db, input) {
+  const raw = String(input ?? "").trim().replace(/\/+$/, "");
+  if (!raw) return { candidates: [] };
+  const tries = [raw, /^https?:\/\//.test(raw) ? null : `https://${raw}`].filter(Boolean);
+  for (const t of tries) {
+    const hit = await db.prepare("SELECT network_url FROM runs WHERE network_url = ? LIMIT 1").bind(t).first();
+    if (hit) return { url: hit.network_url };
+  }
+  const name = raw.split("/").pop().toLowerCase();
+  const { results } = await db.prepare("SELECT DISTINCT network_url FROM runs").all();
+  const matches = results.map((r) => r.network_url).filter((u) => {
+    const last = u.split("/").pop().toLowerCase();
+    return last === name || last.replace(/_/g, " ") === name.replace(/_/g, " ") || u.toLowerCase().includes(raw.toLowerCase());
+  });
+  return matches.length === 1 ? { url: matches[0] } : { candidates: matches };
+}
+
+/**
+ * The newest run for each (network, model) pair.
+ *
+ * :param db: A D1 database.
+ * :param filters: {network_url, model}.
+ * :return: Run rows (without the scorecard), ordered by network then model.
+ */
+export async function latestRuns(db, { network_url = null, model = null } = {}) {
+  const where = [];
+  const args = [];
+  if (network_url) { where.push("network_url = ?"); args.push(network_url); }
+  if (model) { where.push("model = ?"); args.push(model); }
+  const sql = `SELECT ${RUN_COLUMNS} FROM (
+      SELECT ${RUN_COLUMNS}, ROW_NUMBER() OVER (PARTITION BY network_url, model ORDER BY finished_at DESC, id) AS rn
+      FROM runs ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+    ) WHERE rn = 1 ORDER BY network_url, model`;
+  const { results } = await db.prepare(sql).bind(...args).all();
+  return results;
+}
+
+/**
+ * The newest runs for one (network, model) pair, newest first.
+ *
+ * :param db: A D1 database.
+ * :param network_url: The network.
+ * :param model: The model.
+ * :param limit: How many.
+ * :return: Run rows.
+ */
+export async function recentRuns(db, network_url, model, limit = 2) {
+  const { results } = await db.prepare(`SELECT ${RUN_COLUMNS} FROM runs WHERE network_url = ? AND model = ? ORDER BY finished_at DESC, id LIMIT ?`)
+    .bind(network_url, model, limit).all();
+  return results;
+}
+
+/**
+ * Per-test results for several runs at once.
+ *
+ * :param db: A D1 database.
+ * :param ids: Run ids.
+ * :return: Map of run id → [result rows].
+ */
+export async function resultsFor(db, ids) {
+  const out = new Map(ids.map((id) => [id, []]));
+  if (!ids.length) return out;
+  const { results } = await db.prepare(`SELECT run_id, test_id, verdict, pass_rate, passes, applicable, judged FROM results WHERE run_id IN (${ids.map(() => "?").join(",")}) ORDER BY rowid`)
+    .bind(...ids).all();
+  for (const r of results) out.get(r.run_id).push(r);
+  return out;
+}
+
+/**
+ * The stored scorecard of one run.
+ *
+ * :param db: A D1 database.
+ * :param id: Run id.
+ * :return: The scorecard object or null.
+ */
+export async function scorecardOf(db, id) {
+  const row = await db.prepare("SELECT scorecard_json FROM runs WHERE id = ?").bind(id).first();
+  return row ? JSON.parse(row.scorecard_json) : null;
+}

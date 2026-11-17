@@ -110,6 +110,27 @@ npm run crash-test -- <network-url> --upload
 node --env-file=.env scripts/ingest.mjs            # backfill results/*.json and attestation scorecards
 ```
 
+### MCP server
+
+The same data, for AI clients: `https://crashtest.frankmp12357.workers.dev/mcp` (MCP Streamable
+HTTP, stateless, JSON responses, read-only, no key).
+
+```bash
+claude mcp add --transport http crash-test https://crashtest.frankmp12357.workers.dev/mcp
+# then ask: "Why does Spot Deals fail on DeepSeek? Which failures are the network's, which the model's?"
+```
+
+| Tool | What it answers |
+|---|---|
+| `list_networks` | What was tested, latest score per model |
+| `get_scorecard` | One network on one model: every test's verdict and pass count |
+| `compare_models` | Same network across models; flags failures that happen on every model (the network's) |
+| `which_tests_regressed` | Latest vs previous run per network × model; says whether the network or the test suite changed |
+| `flaky_tests` | Tests whose verdict varies within or across recent runs |
+| `explain_failure` | What a test checks, plus the evidence, fenced as untrusted (it quotes injection text) |
+| `get_attestation` | Verifies the signed attestation and checks it still matches the network as served now |
+| `run_static_check` | Loads any network live and checks its files and signature (no model, no cost) |
+
 A run's id is the SHA-256 of its canonical scorecard, so uploads are idempotent. `matrix.mjs`
 and `publish-attestation.mjs` upload automatically when `INGEST_TOKEN` is set. Uploading is
 separate from signing: the token only adds data, and signed attestations still come only

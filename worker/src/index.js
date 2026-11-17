@@ -7,12 +7,14 @@
 //   POST /api/results                  -> store a scorecard (Bearer INGEST_TOKEN) {id, created}
 //   GET  /api/runs?network_url=&model=&limit=  -> recent runs (public, read-only, CORS *)
 //   GET  /api/runs/<id>                -> one run, its per-test results and the scorecard
+//   POST /mcp                          -> MCP server (Streamable HTTP, stateless, read-only; mcp.js)
 //
 // Everything else is a static asset. The model API sends no CORS headers: only this site's
 // own page may use the default model. Other sites that run this network use their own model.
 
 import { issueSession, verifySession } from "./session.js";
 import { getRun, ingestScorecard, listRuns, SOURCES, validateScorecard } from "./results.js";
+import { handleMcp } from "./mcp.js";
 
 const MAX_SCORECARD_BYTES = 1024 * 1024;
 const PUBLIC = { "access-control-allow-origin": "*" };
@@ -33,6 +35,16 @@ export default {
       if (url.pathname === "/api/session" && request.method === "POST") return await session(request, env);
       if (url.pathname === "/api/llm/v1/models" && request.method === "GET") return models();
       if (url.pathname === "/api/llm/v1/chat/completions" && request.method === "POST") return await chat(request, env);
+      if (url.pathname === "/mcp") {
+        if (await limited(env.MCP_LIMIT, `ip:${clientIp(request)}`)) return fail(429, "Too many MCP requests from this address. Wait a minute.");
+        return await handleMcp(request, env, {
+          origin: url.origin,
+          ip: clientIp(request),
+          limited: (key) => limited(env.STATIC_LIMIT, key),
+          // Live checks fetch other sites: never wait long on one.
+          fetchImpl: (u, init = {}) => fetch(u, { ...init, signal: AbortSignal.timeout(8000) }),
+        });
+      }
       if (url.pathname === "/api/results" && request.method === "POST") return await postResults(request, env);
       if (url.pathname === "/api/runs" && request.method === "GET") return await getRuns(url, env);
       if (url.pathname.startsWith("/api/runs/") && request.method === "GET") return await getOneRun(url, env);
