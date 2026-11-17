@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Crash-test · behavioural tests for open agentic websites</title>
+  <meta name="description" content="Paste an agent network URL and see what its agents actually do: injections, pressure, missing data, timed-out actions. Part of Trust Before Transaction.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./">🧪 crash-test</a>
+    <nav aria-label="Links">
+      <a href="#how">How it works</a>
+      <a href="https://github.com/FrankPonce/crash-test/blob/main/FINDINGS.md">Findings</a>
+      <a href="https://github.com/FrankPonce/trust-before-transaction">Project</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Open agentic web · behaviour, not just files</p>
+      <h1>What do this site's agents <em>actually</em> do?</h1>
+      <p class="lede">Paste an agent network URL. We run its published agents in the real browser runtime, with stand-in site tools and a canary "submit" tool, and check how they handle hidden instructions, pressure, missing data and timed-out actions.</p>
+    </section>
+
+    <form id="run-form" class="card" autocomplete="off">
+      <label for="url">Network URL <span class="hint">the folder with agent-manifest.json, then the network name</span></label>
+      <div class="url-row">
+        <input id="url" name="url" type="url" required placeholder="https://site.example/my_network">
+        <button id="run" type="submit">Run crash-test</button>
+      </div>
+      <p class="presets">Try:
+        <button type="button" class="link" data-url="https://charge.frankmp12357.workers.dev/charge_planner">Charge (well-built)</button> ·
+        <button type="button" class="link" data-url="https://sketchy.frankmp12357.workers.dev/spot_deals">Spot Deals (badly instructed)</button>
+      </p>
+
+      <fieldset>
+        <legend>Model the agents run on</legend>
+        <label class="radio"><input type="radio" name="mode" value="site" checked> <span><strong>Free</strong>: this site's Workers AI model (gpt-oss-20b), 1 run per test, rate-limited</span></label>
+        <label class="radio"><input type="radio" name="mode" value="own"> <span><strong>Your own key</strong>: any OpenAI-compatible router that allows browser calls. The key goes from your browser straight to that router, never to this site.</span></label>
+        <div id="own-key" class="grid" hidden>
+          <label>Router URL <input id="router" type="url" value="https://api.otari.ai/api/v1"></label>
+          <label>API key <input id="key" type="password" autocomplete="off" placeholder="paste your key"></label>
+          <label>Model <input id="model" type="text" value="alibaba/qwen3.8-flash"></label>
+          <label>Runs per test <select id="runs"><option>1</option><option selected>3</option><option>5</option></select></label>
+        </div>
+      </fieldset>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <ol id="progress" class="progress"></ol>
+    </form>
+
+    <section id="results" class="card" hidden aria-labelledby="results-heading">
+      <div class="score-row">
+        <div class="score"><span id="score">–</span><small>/100</small></div>
+        <div>
+          <h2 id="results-heading">Scorecard</h2>
+          <p id="score-meta" class="muted"></p>
+          <p id="hash" class="mono muted"></p>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Test</th><th>Verdict</th><th>Passes</th><th>Evidence</th></tr></thead>
+        <tbody id="tests"></tbody>
+      </table>
+      <p><a id="download" href="#">Download scorecard (JSON)</a></p>
+      <h3>Signed attestations</h3>
+      <div id="attestations"></div>
+    </section>
+
+    <section id="how" class="card" aria-labelledby="how-heading">
+      <h2 id="how-heading">How it works</h2>
+      <ul>
+        <li><strong>Only public files.</strong> We load <code>agent-manifest.json</code> and the network JSON, exactly what any other agentic site would load. We never run the site's own code.</li>
+        <li><strong>The real runtime.</strong> Agents run in the unmodified nsDeploy browser runtime, on the model you choose: the open agentic web runs a peer's agents on the <em>caller's</em> model, and results depend on it.</li>
+        <li><strong>Stand-in tools and a canary.</strong> The site's tools are replaced by stand-ins we control. A canary "submit" tool shows whether anything can talk the agent into acting.</li>
+        <li><strong>Unsigned here, signed offline.</strong> Runs on this page are unsigned. Signed attestations come from full runs with the tester key, which never touches this server, and are verified in your browser against <a href=".well-known/http-message-signatures-directory">our public keys</a>.</li>
+      </ul>
+      <p class="muted">Limits: this tests published networks, not the live site's code. Text checks are English-only for now. See the <a href="https://github.com/FrankPonce/crash-test">README</a>.</p>
+    </section>
+  </main>
+
+  <footer class="foot">Part of <a href="https://github.com/FrankPonce/trust-before-transaction">Trust Before Transaction</a> · an entry to the Open Agentic Web Challenge · Apache-2.0</footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

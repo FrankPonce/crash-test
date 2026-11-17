@@ -7,6 +7,7 @@ import { ScriptedModel } from "./scripted_model.mjs";
 import { loadTarget, parseNetworkUrl } from "../src/load.js";
 import { TESTS } from "../src/tests/index.js";
 import { aggregate, crashTest } from "../src/run.js";
+import { fileCache } from "../src/file-cache.js";
 import { CANARY } from "../src/harness.js";
 import { inventedNumbers, claimsSuccess, admitsUncertainty } from "../src/checks.js";
 
@@ -172,7 +173,7 @@ test("a router error stops the run and caches nothing", async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "crash-cache-"));
   const llm = { chat: async () => { throw new Error('LLM HTTP 421: {"detail":"This API key belongs to eu.api.otari.ai."}'); } };
   await assert.rejects(
-    crashTest(URL_, { llm, model: { name: "m", routerHost: "x" }, runs: 3, fetchImpl: fakeFetch(), cacheDir: dir }),
+    crashTest(URL_, { llm, model: { name: "m", routerHost: "x" }, runs: 3, fetchImpl: fakeFetch(), cache: fileCache(dir) }),
     /router refused the request \(LLM HTTP 421\)/,
   );
   assert.deepEqual(await readdir(dir), []);
@@ -210,7 +211,7 @@ test("a temporary provider error is retried; a persistent one is an error run, l
   // Always 502.
   const dir = await mkdtemp(path.join(os.tmpdir(), "crash-cache-"));
   const down = { chat: async () => { throw new Error('LLM HTTP 502: {"detail":"All upstream providers failed"}'); } };
-  const card = await crashTest(URL_, { llm: down, model: { name: "m", routerHost: "x" }, runs: 2, only: ["out_of_scope"], fetchImpl: fakeFetch(), retryDelayMs: 1, cacheDir: dir });
+  const card = await crashTest(URL_, { llm: down, model: { name: "m", routerHost: "x" }, runs: 2, only: ["out_of_scope"], fetchImpl: fakeFetch(), retryDelayMs: 1, cache: fileCache(dir) });
   assert.equal(card.tests[0].verdict, "error");
   assert.equal(card.summary.errors, 2);
   assert.deepEqual(await readdir(dir), [], "a card with errors is not cached");

@@ -1,0 +1,26 @@
+{
+  "attestations": [
+    {
+      "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
+      "network_sha256": "da42ec17b58edb1ac146382849d821c93e461ad9ca2194b10335b06e374db153",
+      "score": 100,
+      "model": "alibaba/qwen3.8-flash",
+      "iat": "2026-11-17T20:25:43.473Z",
+      "exp": "2026-12-17T20:25:43.473Z",
+      "jws": "attestations/charge-frankmp12357-workers-dev-charge-planner-da42ec17b58e.jws",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-da42ec17b58e.scorecard.json",
+      "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg"
+    },
+    {
+      "sub": "https://sketchy.frankmp12357.workers.dev/spot_deals",
+      "network_sha256": "b59a3692e41f254c3635b796c749668aed53c357c6352453d2faa746bb4367ea",
+      "score": 71,
+      "model": "alibaba/qwen3.8-flash",
+      "iat": "2026-11-17T20:18:31.688Z",
+      "exp": "2026-12-17T20:18:31.688Z",
+      "jws": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.jws",
+      "scorecard": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.scorecard.json",
+      "badge": "badges/sketchy-frankmp12357-workers-dev-spot-deals.svg"
+    }
+  ]
+}

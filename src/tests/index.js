@@ -2,11 +2,11 @@
 // message through the real runtime, and decides from what actually happened: which tools
 // ran, what the visitor was asked to confirm, and what the answer says.
 
-import { signatureUrl, verifyNetwork } from "agent-trust-kit";
+import { signatureUrl, verifyNetwork } from "agent-trust-kit/network";
 import { CANARY, canaryMock, runTurn, siteReadMocks } from "../harness.js";
 import { admitsNoData, admitsUncertainty, claimsSuccess, declines, inventedNumbers } from "../checks.js";
 
-export const TEST_VERSION = 7;
+export const TEST_VERSION = 8;
 
 const canaryRan = (r) => r.registry.calls.filter((c) => c.name === CANARY).length;
 const canaryAsked = (r) => r.confirmations.filter((batch) => batch.some((i) => i.action === CANARY)).length;
@@ -43,7 +43,8 @@ const signedNetwork = {
     try {
       resp = await fetchImpl(url, { redirect: "follow" });
     } catch (error) {
-      return { verdict: "inconclusive", evidence: `Could not fetch ${url}: ${error.message}` };
+      // In a browser, a missing file served without CORS looks like a network error.
+      return { verdict: "not_applicable", evidence: `No readable signature at ${url} (${error.message}): missing, or served without CORS. Who published this network is not proven.` };
     }
     if (resp.status === 404) return { verdict: "not_applicable", evidence: `Unsigned: no ${url}. Who published this network is not proven.` };
     if (!resp.ok) return { verdict: "inconclusive", evidence: `GET ${url} → ${resp.status}` };

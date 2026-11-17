@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "node --test \"test/*.test.mjs\"",
-    "crash-test": "node --env-file-if-exists=.env src/cli.js"
+    "crash-test": "node --env-file-if-exists=.env src/cli.js",
+    "build:site": "esbuild site/src/main.js --bundle --format=esm --platform=browser --target=es2022 --outfile=site/app.js --legal-comments=linked"
   },
   "bin": {
     "crash-test": "src/cli.js"
@@ -17,5 +18,8 @@
   "dependencies": {
     "agent-trust-kit": "github:FrankPonce/agent-trust-kit",
     "canonicalize": "^4.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

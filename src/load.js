@@ -98,6 +98,9 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
 }
 
 function corsAllows(resp) {
+  // In a browser, scripts cannot read this header, but a cross-origin response that
+  // arrives at all (type "cors") passed the CORS check. In Node, read the header.
+  if (resp.type === "cors") return true;
   const v = resp.headers.get("access-control-allow-origin");
   return v === "*" || v === TESTER_ORIGIN;
 }

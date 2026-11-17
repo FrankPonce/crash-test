@@ -1,0 +1,21 @@
+{
+  // Crash-test site: static tester page + free default model for browser runs.
+  //   npx wrangler deploy        Secret (once): npx wrangler secret put SESSION_SECRET
+  "name": "crashtest",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-01",
+  "assets": {
+    "directory": "../site",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "404-page"
+  },
+  "ai": { "binding": "AI" },
+  // A full browser run is about 25 model calls, so limits are per session and per IP.
+  "ratelimits": [
+    { "name": "SESSION_LIMIT", "namespace_id": "2001", "simple": { "limit": 5, "period": 60 } },
+    { "name": "LLM_LIMIT", "namespace_id": "2002", "simple": { "limit": 40, "period": 60 } },
+    { "name": "LLM_IP_LIMIT", "namespace_id": "2003", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "observability": { "enabled": true }
+}

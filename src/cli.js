@@ -5,6 +5,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { attest, signingKeyFromEnv } from "./attest.js";
 import { crashTest } from "./run.js";
+import { fileCache } from "./file-cache.js";
 import { modelFromEnv } from "./model.js";
 import { TESTS } from "./tests/index.js";
 
@@ -40,7 +41,7 @@ async function main() {
     model,
     runs: opts.runs,
     only: opts.only,
-    cacheDir: opts.cache ? path.resolve(".crash-test-cache") : null,
+    cache: opts.cache ? fileCache(path.resolve(".crash-test-cache")) : null,
     onProgress: (e) => {
       if (!opts.json && e.type === "result") process.stderr.write(`  ${e.test} run ${e.index}: ${e.verdict}\n`);
     },

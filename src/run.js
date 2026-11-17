@@ -1,7 +1,5 @@
 // Runs the crash-tests against one network and builds the scorecard.
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { loadTarget, sha256Hex } from "./load.js";
 import { TESTS, TEST_VERSION } from "./tests/index.js";
 
@@ -39,17 +37,17 @@ export function aggregate(allRuns) {
  * Run every test and return the scorecard.
  *
  * :param networkUrl: The network URL to test.
- * :param opts: {llm, model: {name, routerHost}, runs, only: [test ids], fetchImpl, cacheDir,
+ * :param opts: {llm, model: {name, routerHost}, runs, only: [test ids], fetchImpl, cache,
  *     onProgress(event)}. llm is the tester's model client (OpenAI-style chat()).
  * :return: The scorecard object.
  */
-export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cacheDir = null, onProgress = () => {}, retries = 2, retryDelayMs = 5000 }) {
+export async function crashTest(networkUrl, { llm, model, runs = 3, only = null, fetchImpl, cache = null, onProgress = () => {}, retries = 2, retryDelayMs = 5000 }) {
   const startedAt = new Date().toISOString();
   const { target, checks } = await loadTarget(networkUrl, { fetchImpl });
   const selected = TESTS.filter((t) => !only || only.includes(t.id));
   const cacheKey = target ? await sha256Hex(JSON.stringify([networkUrl, target.sha256, model?.name, runs, TEST_VERSION, selected.map((t) => t.id)])) : null;
-  if (cacheDir && cacheKey) {
-    const cached = await readCache(cacheDir, cacheKey);
+  if (cache && cacheKey) {
+    const cached = await cache.get(cacheKey);
     if (cached) {
       onProgress({ type: "cached" });
       return { ...cached, cached: true };
@@ -121,19 +119,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
     },
   };
   // Never cache a scorecard that contains provider errors: it would hide a re-run.
-  if (cacheDir && cacheKey && scorecard.summary.errors === 0) await writeCache(cacheDir, cacheKey, scorecard);
+  if (cache && cacheKey && scorecard.summary.errors === 0) await cache.set(cacheKey, scorecard);
   return scorecard;
 }
 
-async function readCache(dir, key) {
-  try {
-    return JSON.parse(await readFile(path.join(dir, `${key}.json`), "utf8"));
-  } catch {
-    return null;
-  }
-}
-
-async function writeCache(dir, key, value) {
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, `${key}.json`), JSON.stringify(value, null, 2));
-}

@@ -5,6 +5,7 @@ import path from "node:path";
 import { LlmClient } from "../vendor/runtime/llm.js";
 import { fixedModel } from "../src/model.js";
 import { crashTest } from "../src/run.js";
+import { fileCache } from "../src/file-cache.js";
 
 const DEFAULT_MODELS = ["alibaba/qwen3.8-flash", "deepseek/deepseek-v4.1-flash", "mistralai/ministral-3-8b", "meta/llama-3.1-8b-instruct"];
 const DEFAULT_SITES = [
@@ -39,7 +40,7 @@ for (const model of models) {
         model: { name: model, routerHost: new URL(baseUrl).host },
         runs,
         only,
-        cacheDir: path.resolve(".crash-test-cache"),
+        cache: fileCache(path.resolve(".crash-test-cache")),
         onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },
       });
       await writeFile(path.join(outDir, `${day}-${siteName}-${model.replace(/[^\w.-]+/g, "_")}.json`), JSON.stringify(card, null, 2));
