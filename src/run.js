@@ -71,7 +71,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       let result;
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          result = await test.run({ target, llm, checks });
+          result = await test.run({ target, llm, checks, fetchImpl });
         } catch (error) {
           result = { verdict: "inconclusive", evidence: `Test error: ${error?.message || error}` };
         }

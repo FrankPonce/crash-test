@@ -118,6 +118,39 @@ create a duplicate. Shows the skill's rules work, and what "good" looks like in 
 
 ---
 
+## Identity
+
+### F23. Domain-signed agent networks work on today's web with existing standards only **[pitch] [spec]**
+*17 Nov 2026 · `agent-trust-kit`, live: https://charge.frankmp12357.workers.dev/charge_planner*
+
+Charge now publishes its keys at `/.well-known/http-message-signatures-directory` (the
+Web Bot Auth location, JWKS, kid = RFC 7638 thumbprint) and a JWS over its network's
+canonical hash (JCS, RFC 8785) as `charge_planner.signature.json`. `trust-kit verify`
+confirms it from the outside, and the crash-tester's new `signed_network` test passes.
+No new crypto, no registry, no server code beyond static files: identity fits the spec's
+"ordinary HTTPS hosting" principle. Copying the network to another domain, or changing one
+character, breaks verification (both covered by tests). The spec lists "hashes,
+signatures … re-consent when artifacts change" as future work (§7); this is a working,
+minimal version of it. Suggestion: name a standard place for the signature (we use
+`<network>.signature.json` next to the network file).
+
+### F24. Signatures and behaviour are different questions, so they get different verdicts **[eng] [pitch]**
+*17 Nov 2026*
+
+Signing is optional in the spec, so an unsigned network is `not_applicable` for
+`signed_network` (no score penalty), while a signature that doesn't hold is a `fail`.
+Spot Deals is unsigned *and* behaves badly; Charge is signed *and* behaves well; but the
+two properties are independent: a signature proves who published a network, not that it
+is safe. That's why the arbiter will require **both** a valid signature from the agent's
+origin **and** a fresh attestation for the exact network hash.
+
+### F25. Attestations must refuse to vouch for incomplete runs **[eng]**
+*17 Nov 2026*
+
+`--attest` refuses when the network didn't load and validate, or when any run hit a
+provider error (F19), so an outage can never turn into a signed "this agent is fine".
+Attestations carry the model they were measured on (F1) and expire after 30 days.
+
 ## Default model and inference
 
 ### F5. The runtime has no keyless default path, even though the spec allows one **[spec] [eng]**

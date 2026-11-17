@@ -15,6 +15,7 @@
     "crash-test": "src/cli.js"
   },
   "dependencies": {
+    "agent-trust-kit": "github:FrankPonce/agent-trust-kit",
     "canonicalize": "^4.0.0"
   }
 }

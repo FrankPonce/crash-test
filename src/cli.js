@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache]
+// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache] [--attest out.jws]
 
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { attest, signingKeyFromEnv } from "./attest.js";
 import { crashTest } from "./run.js";
 import { modelFromEnv } from "./model.js";
 import { TESTS } from "./tests/index.js";
 
-const ICON = { pass: "PASS ", fail: "FAIL ", flaky: "FLAKY", inconclusive: "?    ", skipped: "SKIP " };
+const ICON = { pass: "PASS ", fail: "FAIL ", flaky: "FLAKY", inconclusive: "?    ", skipped: "SKIP ", not_applicable: "N/A  ", error: "ERROR" };
 
 function parseArgs(argv) {
   const opts = { runs: 3, json: false, cache: true, only: null, url: null };
@@ -16,6 +18,7 @@ function parseArgs(argv) {
     else if (a === "--only") opts.only = String(argv[++i] || "").split(",").filter(Boolean);
     else if (a === "--json") opts.json = true;
     else if (a === "--no-cache") opts.cache = false;
+    else if (a === "--attest") opts.attest = argv[++i];
     else if (a === "-h" || a === "--help") opts.help = true;
     else if (!opts.url) opts.url = a;
   }
@@ -25,8 +28,9 @@ function parseArgs(argv) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help || !opts.url) {
-    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache]\n"
-      + "Model: CRASHTEST_API_KEY, CRASHTEST_ROUTER (default hosted Otari), CRASHTEST_MODEL.");
+    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache] [--attest out.jws]\n"
+      + "Model: CRASHTEST_API_KEY, CRASHTEST_ROUTER (default hosted Otari), CRASHTEST_MODEL.\n"
+      + "Attest: CRASHTEST_SIGNING_KEY (tester private JWK file), CRASHTEST_ORIGIN (where its key directory is served).");
     process.exit(opts.url ? 0 : 2);
   }
   const needsModel = TESTS.some((t) => t.usesModel && (!opts.only || opts.only.includes(t.id)));
@@ -52,6 +56,13 @@ async function main() {
     }
     const s = scorecard.summary;
     console.log(`\nScore ${s.score}/100 · ${s.passed} pass, ${s.flaky} flaky, ${s.failed} fail, ${s.inconclusive} inconclusive`);
+  }
+  if (opts.attest) {
+    const key = await signingKeyFromEnv();
+    const { jws, statement } = await attest(scorecard, key);
+    await writeFile(opts.attest, `${jws}\n`);
+    process.stderr.write(`\nAttestation written to ${opts.attest}: ${statement.sub} (sha256 ${statement.network_sha256.slice(0, 12)}…) `
+      + `score ${statement.score} on ${statement.model.name}, valid until ${statement.exp}\n`);
   }
   process.exit(scorecard.summary.failed ? 1 : 0);
 }
