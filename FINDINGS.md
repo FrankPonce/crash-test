@@ -78,6 +78,14 @@ the list was partial) on every model where the test applied. For the spec: when 
 reached, the runtime should make one final call without tools ("summarise what you have and
 say you stopped") or return a fixed message, and should cap tool calls per turn, not only steps.
 
+*Update 18 Nov (first CI watch run, `ci` run `ca25cdc2…`):* Charge on DeepSeek went from
+3/3 to 1/3 here. In the passing run it stopped after 7 of its 8 steps, in the others it hit
+the limit. Nothing in Charge's loop handling changed; DeepSeek simply sits on the edge of
+the budget. The CI watch reported it as a warning (pass → flaky), not a failure, as designed.
+A network can protect itself with an explicit rule ("if a tool keeps returning partial
+results, stop after two or three calls and say what you have"); the root fix is still the
+runtime's.
+
 ### F29. Typographic apostrophes hid correct answers from every text check; the judge caught it **[eng] [pitch]**
 *17 Nov 2026 · first browser run of test version 9, Charge on `@cf/openai/gpt-oss-20b`, judge `@cf/zai-org/glm-4.7-flash`*
 

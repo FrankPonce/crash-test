@@ -131,6 +131,24 @@ claude mcp add --transport http crash-test https://crashtest.frankmp12357.worker
 | `get_attestation` | Verifies the signed attestation and checks it still matches the network as served now |
 | `run_static_check` | Loads any network live and checks its files and signature (no model, no cost) |
 
+### CI regression watch
+
+[`watch.json`](watch.json) lists networks × models to keep tested.
+[`scripts/ci-watch.mjs`](scripts/ci-watch.mjs) runs daily in
+[GitHub Actions](.github/workflows/crash-test-watch.yml): a pair is re-tested only when it
+was never tested, its network changed (hash), the test suite changed, or its last run is a
+week old. Every run is stored, compared with the previous one, and summarised in the job.
+
+- **Fails** when a test that passed now fails outright, or the score drops by 10 or more.
+- **Warns** on pass → flaky or a pass-rate drop of a third (LLM tests vary; one wobble isn't a regression).
+- Exit codes: 0 fine, 1 regression, 2 a network or the model router couldn't be reached.
+
+```bash
+node --env-file=.env scripts/ci-watch.mjs --dry-run   # plan only: what would run, and why
+```
+
+The MCP tool `which_tests_regressed` uses the same rule.
+
 A run's id is the SHA-256 of its canonical scorecard, so uploads are idempotent. `matrix.mjs`
 and `publish-attestation.mjs` upload automatically when `INGEST_TOKEN` is set. Uploading is
 separate from signing: the token only adds data, and signed attestations still come only

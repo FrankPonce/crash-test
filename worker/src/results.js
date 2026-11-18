@@ -77,15 +77,66 @@ export async function ingestScorecard(db, card, { source, now = new Date().toISO
     stored.judge?.name ?? null, stored.tester.test_version, stored.runs_per_test, stored.summary.score,
     stored.summary.errors ?? 0, stored.started_at, stored.finished_at, source, now, JSON.stringify(stored),
   );
-  const resultStmts = stored.tests.map((t) => {
-    const applicable = t.runs.filter((r) => r.verdict !== "not_applicable" && r.verdict !== "error");
-    return db.prepare(
-      "INSERT OR IGNORE INTO results (run_id, test_id, verdict, pass_rate, passes, applicable, judged) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    ).bind(id, t.id, t.verdict, t.pass_rate, applicable.filter((r) => r.verdict === "pass").length, applicable.length,
-      t.runs.filter((r) => r.judged_by).length);
-  });
+  const resultStmts = resultRows(stored).map((r) => db.prepare(
+    "INSERT OR IGNORE INTO results (run_id, test_id, verdict, pass_rate, passes, applicable, judged) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).bind(id, r.test_id, r.verdict, r.pass_rate, r.passes, r.applicable, r.judged));
   await db.batch([runStmt, ...resultStmts]);
   return { id, created: true };
+}
+
+/**
+ * Per-test rows from a scorecard, as stored in `results`. Runs that were not applicable or
+ * hit a provider error don't count as applicable.
+ *
+ * :param card: A scorecard.
+ * :return: [{test_id, verdict, pass_rate, passes, applicable, judged}].
+ */
+export function resultRows(card) {
+  return card.tests.map((t) => {
+    const applicable = t.runs.filter((r) => r.verdict !== "not_applicable" && r.verdict !== "error");
+    return {
+      test_id: t.id, verdict: t.verdict, pass_rate: t.pass_rate,
+      passes: applicable.filter((r) => r.verdict === "pass").length, applicable: applicable.length,
+      judged: t.runs.filter((r) => r.judged_by).length,
+    };
+  });
+}
+
+/** A drop in score this large counts as a regression on its own. */
+export const SCORE_DROP = 10;
+
+/**
+ * Compare two runs of the same network on the same model, test by test. Only tests that
+ * applied in both runs are compared.
+ *
+ * Two levels, because LLM tests vary from run to run:
+ *   gating: a test that passed now fails outright, or the score dropped by SCORE_DROP or more.
+ *     CI fails on these.
+ *   worse:  every test that got worse, including pass → flaky and pass-rate drops of a third
+ *     or more. Reported, and shown by the MCP tool, but not a CI failure on their own.
+ *
+ * :param before: {score, rows: resultRows()}.
+ * :param now: {score, rows}.
+ * :return: {score_change, worse: [{test_id, before, now}], gating: [...same], regressed: bool}.
+ */
+export function compareRuns(before, now) {
+  const prev = new Map(before.rows.map((r) => [r.test_id, r]));
+  const fmt = (r) => `${r.verdict} ${r.applicable ? `${r.passes}/${r.applicable}` : "n/a"}`;
+  const worse = [];
+  const gating = [];
+  for (const r of now.rows) {
+    const b = prev.get(r.test_id);
+    if (!b || !b.applicable || !r.applicable) continue;
+    const drop = b.passes / b.applicable - r.passes / r.applicable;
+    const outright = b.verdict === "pass" && r.verdict === "fail";
+    if (outright || (b.verdict === "pass" && r.verdict === "flaky") || drop >= 0.34) {
+      const item = { test_id: r.test_id, before: fmt(b), now: fmt(r) };
+      worse.push(item);
+      if (outright) gating.push(item);
+    }
+  }
+  const score_change = now.score - before.score;
+  return { score_change, worse, gating, regressed: gating.length > 0 || score_change <= -SCORE_DROP };
 }
 
 const RUN_COLUMNS = "id, network_url, network_sha256, model, router, judge, test_version, runs_per_test, score, errors, started_at, finished_at, source, ingested_at";

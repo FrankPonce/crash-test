@@ -8,7 +8,7 @@
 import { verifyAttestation } from "agent-trust-kit/attestation";
 import { loadTarget } from "../../src/load.js";
 import { TESTS } from "../../src/tests/index.js";
-import { latestRuns, recentRuns, resolveNetwork, resultsFor, scorecardOf, STATIC_ONLY } from "./results.js";
+import { compareRuns, latestRuns, recentRuns, resolveNetwork, resultsFor, scorecardOf, STATIC_ONLY } from "./results.js";
 
 export const PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 export const SERVER_INFO = { name: "crash-test", title: "Crash-test results for open agentic websites", version: "0.1.0" };
@@ -65,7 +65,7 @@ export const TOOLS = [
   {
     name: "which_tests_regressed",
     title: "Find regressions",
-    description: "Compares each (network, model)'s latest run with the run before it: tests that got worse, score change, and whether the network itself changed (hash) or the test suite did (version).",
+    description: "Compares each (network, model)'s latest run with the run before it: tests that got worse, score change, whether the network itself changed (hash) or the test suite did (version), and whether it would fail the CI watch (a passing test now failing, or a score drop of 10 or more).",
     inputSchema: { type: "object", properties: { network_url: NETWORK, model: MODEL }, additionalProperties: false },
     annotations: READ_ONLY,
   },
@@ -278,28 +278,19 @@ const HANDLERS = {
       const [now, before] = await recentRuns(env.DB, p.network_url, p.model, 2);
       if (!before) continue;
       const res = await resultsFor(env.DB, [now.id, before.id]);
-      const prev = new Map(res.get(before.id).map((r) => [r.test_id, r]));
-      const worse = [];
-      for (const r of res.get(now.id)) {
-        const b = prev.get(r.test_id);
-        if (!b || !b.applicable || !r.applicable) continue;
-        const rateNow = r.passes / r.applicable;
-        const rateBefore = b.passes / b.applicable;
-        if ((b.verdict === "pass" && ["fail", "flaky"].includes(r.verdict)) || rateBefore - rateNow >= 0.34) {
-          worse.push({ test_id: r.test_id, before: `${b.verdict} ${pct(b)}`, now: `${r.verdict} ${pct(r)}` });
-        }
-      }
-      const delta = now.score - before.score;
-      if (worse.length || delta <= -10) {
+      // Same rule as the CI watch (scripts/ci-watch.mjs).
+      const cmp = compareRuns({ score: before.score, rows: res.get(before.id) }, { score: now.score, rows: res.get(now.id) });
+      if (cmp.worse.length || cmp.regressed) {
         report.push({
-          network_url: p.network_url, model: p.model, score_before: before.score, score_now: now.score, score_change: delta, tests: worse,
+          network_url: p.network_url, model: p.model, score_before: before.score, score_now: now.score, score_change: cmp.score_change,
+          tests: cmp.worse, fails_ci: cmp.regressed,
           network_changed: now.network_sha256 !== before.network_sha256, test_version_changed: now.test_version !== before.test_version,
           run_now: now.id, run_before: before.id,
         });
       }
     }
     if (!report.length) return toolResult(`No regressions${url ? ` for ${url}` : ""}: no test got worse and no score dropped by 10 or more between the last two runs of any network × model pair (pairs with a single run are skipped).`, { regressions: [] });
-    const text = report.map((r) => `${r.network_url} on ${r.model}: ${r.score_before} → ${r.score_now}${r.network_changed ? " (the network changed)" : ""}${r.test_version_changed ? " (the test suite changed)" : ""}\n${r.tests.map((t) => `  - ${t.test_id}: ${t.before} → ${t.now}`).join("\n")}`).join("\n\n");
+    const text = report.map((r) => `${r.network_url} on ${r.model}: ${r.score_before} → ${r.score_now}${r.network_changed ? " (the network changed)" : ""}${r.test_version_changed ? " (the test suite changed)" : ""}${r.fails_ci ? " · would fail CI" : " · warning only"}\n${r.tests.map((t) => `  - ${t.test_id}: ${t.before} → ${t.now}`).join("\n")}`).join("\n\n");
     return toolResult(`${report.length} regression(s):\n\n${text}`, { regressions: report });
   },
 

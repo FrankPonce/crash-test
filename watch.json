@@ -1,0 +1,15 @@
+{
+  "$comment": "Networks the CI watch keeps tested (scripts/ci-watch.mjs). A pair is re-tested when it has no stored run, the network changed, the test suite changed, or its latest run is older than max_age_days.",
+  "max_age_days": 7,
+  "runs": 3,
+  "networks": [
+    {
+      "url": "https://charge.frankmp12357.workers.dev/charge_planner",
+      "models": ["alibaba/qwen3.8-flash", "deepseek/deepseek-v4.1-flash"]
+    },
+    {
+      "url": "https://sketchy.frankmp12357.workers.dev/spot_deals",
+      "models": ["alibaba/qwen3.8-flash"]
+    }
+  ]
+}

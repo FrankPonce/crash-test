@@ -1,0 +1,53 @@
+# Daily regression watch: re-test the networks in watch.json when they changed or got
+# stale, store the runs in the results database, and fail on a regression.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   CRASHTEST_API_KEY   model router key (Otari)
+#   CRASHTEST_ROUTER    router base URL, e.g. https://eu.api.otari.ai/api/v1
+#   INGEST_TOKEN        results-database upload token (same as the Worker secret)
+# Without CRASHTEST_API_KEY the job only plans (dry run) and says so.
+name: Crash-test watch
+on:
+  schedule:
+    - cron: "17 5 * * *"   # daily, 05:17 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only plan; run no tests"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crash-test-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CRASHTEST_API_KEY: ${{ secrets.CRASHTEST_API_KEY }}
+      CRASHTEST_ROUTER: ${{ secrets.CRASHTEST_ROUTER }}
+      INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts || npm install --ignore-scripts
+      - name: Decide mode
+        id: mode
+        run: |
+          if [ -z "$CRASHTEST_API_KEY" ]; then
+            echo "::notice::CRASHTEST_API_KEY is not set, so this is a dry run (plan only)."
+            echo "flag=--dry-run" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "flag=--dry-run" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run the watch
+        run: node scripts/ci-watch.mjs ${{ steps.mode.outputs.flag }}
