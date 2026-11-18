@@ -113,7 +113,8 @@ function showScorecard(card) {
   const results = $("#results");
   results.hidden = false;
   $("#score").textContent = card.summary.score;
-  $("#score-meta").textContent = `${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test${card.judges?.length ? ` · judge ${card.judges.map((j) => j.name).join(" + ")}` : ""} · unsigned`;
+  const cov = card.summary.coverage;
+  $("#score-meta").textContent = `${cov == null ? "" : `coverage ${cov}% (${card.summary.decided_tests} of ${card.summary.applicable_tests} tests decided; unclear runs lower coverage, not the score) · `}${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test${card.judges?.length ? ` · judge ${card.judges.map((j) => j.name).join(" + ")}` : ""} · unsigned`;
   $("#hash").textContent = card.target.network_sha256 ? `network sha256 ${card.target.network_sha256}` : "network did not load";
   const body = $("#tests");
   body.replaceChildren(...card.tests.map((t) => {
@@ -146,16 +147,18 @@ async function showAttestations(networkUrl, currentHash) {
     return;
   }
   for (const a of mine) {
-    const jws = (await (await fetch(a.jws, { cache: "no-store" })).text()).trim();
-    const v = await verifyAttestation(jws, { issuer: location.origin, expect: currentHash ? { network_sha256: currentHash } : {} });
+    // New entries: in-toto statement in a DSSE envelope (a.attestation); older ones: a JWS (a.jws).
+    const file = a.attestation ?? a.jws;
+    const signed = (await (await fetch(file, { cache: "no-store" })).text()).trim();
+    const v = await verifyAttestation(signed, { issuer: location.origin, expect: currentHash ? { network_sha256: currentHash } : {} });
     const s = v.statement;
     const ok = v.ok;
     box.append(el("div", { class: `attest ${ok ? "ok" : "bad"}` },
       el("strong", { text: ok ? "✓ Signed attestation verified" : "✗ Attestation does not apply" }),
-      el("p", { text: s ? `Score ${s.score} on ${s.model?.name} (${s.runs_per_test} runs per test), issued ${s.iat.slice(0, 10)}, valid until ${s.exp.slice(0, 10)}.` : "" }),
+      el("p", { text: s ? `Score ${s.score}${s.coverage == null ? "" : ` (coverage ${s.coverage}%)`} on ${s.model?.name} (${s.runs_per_test} runs per test), issued ${s.iat.slice(0, 10)}, valid until ${s.exp.slice(0, 10)}.` : "" }),
       ok ? null : el("p", { class: "muted", text: `Reason: ${v.reason}.` }),
       s?.judges?.length ? el("p", { class: "muted", text: judgedNote(s) }) : null,
-      el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: a.jws, text: "JWS" }), " · ", el("a", { href: a.scorecard, text: "full scorecard" }))));
+      el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: file, text: a.attestation ? "in-toto attestation (DSSE)" : "JWS" }), " · ", el("a", { href: a.scorecard, text: "full scorecard" }))));
   }
 }
 

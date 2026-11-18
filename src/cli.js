@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.jws]
+// crash-test <network-url> [--runs 3] [--only id,id] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.intoto.json]
 
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,7 +32,7 @@ function parseArgs(argv) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help || !opts.url) {
-    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.jws]\n"
+    console.log("Usage: crash-test <network-url> [--runs 3] [--only static_validity,out_of_scope] [--json] [--no-cache] [--no-judge] [--upload] [--attest out.intoto.json]\n"
       + "Model: CRASHTEST_API_KEY, CRASHTEST_ROUTER (default hosted Otari), CRASHTEST_MODEL.\n"
       + "Judge for unclear runs: CRASHTEST_JUDGE_MODELS (comma-separated; the first one not under test is used; \"off\" disables).\n"
       + "Upload: INGEST_TOKEN, CRASHTEST_RESULTS (default: the public tester's /api/results).\n"
@@ -67,14 +67,14 @@ async function main() {
       if (shown?.judged_by) console.log(`       Judges (${[].concat(shown.judged_by).join(" + ")}): ${shown.judge_reason ?? (shown.judge_votes || []).map((v) => `${v.judge} ${v.verdict}`).join(", ")}`);
     }
     const s = scorecard.summary;
-    console.log(`\nScore ${s.score}/100 · ${s.passed} pass, ${s.flaky} flaky, ${s.failed} fail, ${s.inconclusive} inconclusive`);
+    console.log(`\nScore ${s.score}/100 · coverage ${s.coverage}% (${s.decided_tests} of ${s.applicable_tests} tests decided) · ${s.passed} pass, ${s.flaky} flaky, ${s.failed} fail, ${s.inconclusive} inconclusive`);
   }
   if (opts.attest) {
     const key = await signingKeyFromEnv();
-    const { jws, statement } = await attest(scorecard, key);
-    await writeFile(opts.attest, `${jws}\n`);
+    const { envelope, statement } = await attest(scorecard, key);
+    await writeFile(opts.attest, `${JSON.stringify(envelope, null, 2)}\n`); // DSSE envelope (in-toto)
     process.stderr.write(`\nAttestation written to ${opts.attest}: ${statement.sub} (sha256 ${statement.network_sha256.slice(0, 12)}…) `
-      + `score ${statement.score} on ${statement.model.name}, valid until ${statement.exp}\n`);
+      + `score ${statement.score} (coverage ${statement.coverage}%) on ${statement.model.name}, valid until ${statement.exp}\n`);
   }
   if (upload) {
     const r = await uploadScorecard(scorecard, { source: "cli", ...upload });

@@ -64,7 +64,8 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
   check("network_fetch", netResp.ok, `GET ${hoconUrl} → ${netResp.status}`);
   if (!netResp.ok) return { target: null, checks };
   check("network_cors", corsAllows(netResp), `Access-Control-Allow-Origin: ${netResp.headers.get("access-control-allow-origin") ?? "(none)"}`);
-  const text = await netResp.text();
+  const bytes = new Uint8Array(await netResp.arrayBuffer());
+  const text = new TextDecoder().decode(bytes);
   let config;
   try {
     config = JSON.parse(text);
@@ -91,8 +92,10 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
   check("peer_policy", policy === "closed" || policy === "open", `peer_policy.mode = ${policy ?? "(missing)"}`);
 
   const sha256 = await sha256Hex(canonicalize(config));
+  // The file's bytes as served, for tools that hash files directly (in-toto subject "sha256").
+  const fileSha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
   return {
-    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256 },
+    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256, fileSha256 },
     checks,
   };
 }

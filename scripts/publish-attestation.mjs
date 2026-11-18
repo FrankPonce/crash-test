@@ -28,10 +28,11 @@ const slug = (u) => {
 };
 
 /** A small shields-style SVG badge. */
-export function badgeSvg(score, model) {
+export function badgeSvg(score, model, coverage = 100) {
   const color = score >= 85 ? "#3ddc97" : score >= 65 ? "#f5b942" : "#ff5c7a";
   const left = "crash-test";
-  const right = `${score} · ${model.split("/").pop()}`;
+  // Coverage is shown only when some runs were undecided (the score covers decided runs).
+  const right = `${score}${coverage < 100 ? ` (${coverage}% cov)` : ""} · ${model.split("/").pop()}`;
   const lw = 8 + left.length * 7;
   const rw = 10 + right.length * 7;
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -56,14 +57,16 @@ const scorecard = await crashTest(url, {
   cache: fileCache(path.resolve(".crash-test-cache")),
   onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },
 });
-const { jws, statement } = await attest(scorecard, key);
+const name = `${slug(url)}-${scorecard.target.network_sha256.slice(0, 12)}`;
+const scorecardPath = `attestations/${name}.scorecard.json`;
+// in-toto Statement v1 + Test Result predicate, in a DSSE envelope (.intoto.json).
+const { envelope, statement } = await attest(scorecard, { ...key, url: `${new URL(key.issuer).origin}/${scorecardPath}` });
 
-const name = `${slug(url)}-${statement.network_sha256.slice(0, 12)}`;
 await mkdir(path.join(SITE, "attestations"), { recursive: true });
 await mkdir(path.join(SITE, "badges"), { recursive: true });
-await writeFile(path.join(SITE, "attestations", `${name}.jws`), `${jws}\n`);
+await writeFile(path.join(SITE, "attestations", `${name}.intoto.json`), `${JSON.stringify(envelope, null, 2)}\n`);
 await writeFile(path.join(SITE, "attestations", `${name}.scorecard.json`), `${JSON.stringify(scorecard, null, 2)}\n`);
-await writeFile(path.join(SITE, "badges", `${slug(url)}.svg`), badgeSvg(statement.score, statement.model.name));
+await writeFile(path.join(SITE, "badges", `${slug(url)}.svg`), badgeSvg(statement.score, statement.model.name, statement.coverage));
 
 const indexPath = path.join(SITE, "attestations", "index.json");
 const index = JSON.parse(await readFile(indexPath, "utf8").catch(() => '{"attestations":[]}'));
@@ -72,11 +75,13 @@ index.attestations.push({
   sub: statement.sub,
   network_sha256: statement.network_sha256,
   score: statement.score,
+  coverage: statement.coverage,
   model: statement.model.name,
   iat: statement.iat,
   exp: statement.exp,
-  jws: `attestations/${name}.jws`,
-  scorecard: `attestations/${name}.scorecard.json`,
+  format: "in-toto",
+  attestation: `attestations/${name}.intoto.json`,
+  scorecard: scorecardPath,
   badge: `badges/${slug(url)}.svg`,
 });
 index.attestations.sort((a, b) => a.sub.localeCompare(b.sub));

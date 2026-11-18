@@ -1,35 +1,37 @@
-// Turn a scorecard into a signed attestation (agent-trust-kit format).
-// The tester's private key is a server secret; its public key directory must be served
-// at <CRASHTEST_ORIGIN>/.well-known/http-message-signatures-directory for anyone to verify.
+// Turn a scorecard into a signed attestation: an in-toto Statement v1 with the Test Result
+// predicate, in a DSSE envelope (agent-trust-kit). The tester's private key is a server
+// secret; its public key directory must be served at
+// <CRASHTEST_ORIGIN>/.well-known/http-message-signatures-directory for anyone to verify.
 
 import { readFile } from "node:fs/promises";
-import { attestationFromScorecard, signAttestation } from "agent-trust-kit";
+import { attestationFromScorecard, attestationSummary, signAttestation } from "agent-trust-kit";
+import { MIN_COVERAGE } from "./run.js";
 
 /**
  * Sign a scorecard as an attestation.
  *
  * Only complete, clean runs are attested: the network must have loaded and passed static
- * validity, and no run may have hit a provider error.
+ * validity, no run may have hit a provider error, and at least MIN_COVERAGE percent of
+ * the applicable runs must have been decided.
  *
  * :param scorecard: A crash-test/scorecard@1 object.
- * :param opts: {issuer: the tester origin, privateJwk, ttlDays, now}.
- * :return: {jws, statement}.
+ * :param opts: {issuer: the tester origin, privateJwk, ttlDays, now, url: where the full
+ *     scorecard is published (optional)}.
+ * :return: {envelope: the DSSE envelope, intoto: the in-toto statement, statement: its flat
+ *     summary (score, coverage, model, iat, exp, ...)}.
  * :raises Error: When the scorecard should not be attested.
  */
-export async function attest(scorecard, { issuer, privateJwk, ttlDays = 30, now = Date.now() }) {
+export async function attest(scorecard, { issuer, privateJwk, ttlDays = 30, now = Date.now(), url = null }) {
   const staticTest = scorecard.tests.find((t) => t.id === "static_validity");
   if (!scorecard.target?.network_sha256 || staticTest?.verdict !== "pass") throw new Error("Not attesting: the network did not load and validate.");
   if (scorecard.summary?.errors) throw new Error(`Not attesting: ${scorecard.summary.errors} runs hit provider errors. Run again.`);
-  const statement = attestationFromScorecard(scorecard, { issuer, now, ttlDays });
-  // Say which part of the score a judge panel decided, and with which models and prompt,
-  // so the signed claim separates deterministic verdicts from judged ones.
-  statement.judges = (scorecard.judges || []).map((j) => j.name);
-  statement.judge_prompt_sha256 = scorecard.judge_prompt_sha256 ?? null;
-  for (const t of scorecard.tests || []) {
-    const judged = (t.runs || []).filter((r) => r.deterministic_verdict === "inconclusive").length;
-    if (judged && statement.results[t.id]) statement.results[t.id].judged_runs = judged;
-  }
-  return { jws: await signAttestation(statement, privateJwk), statement };
+  const coverage = scorecard.summary?.coverage;
+  if (!Number.isFinite(coverage)) throw new Error("Not attesting: the scorecard has no coverage (made before scoring decided/1). Run again.");
+  if (coverage < MIN_COVERAGE) throw new Error(`Not attesting: only ${coverage}% of applicable runs were decided (minimum ${MIN_COVERAGE}%). The score would rest on too few runs.`);
+  // The statement records coverage and scoring (the score covers decided runs only), the
+  // judges, the judge prompt's digest and judged runs per test, so the judged part is auditable.
+  const intoto = attestationFromScorecard(scorecard, { issuer, now, ttlDays, url });
+  return { envelope: await signAttestation(intoto, privateJwk), intoto, statement: attestationSummary(intoto) };
 }
 
 /** Read the tester's signing key from CRASHTEST_SIGNING_KEY (a path to a private JWK file). */

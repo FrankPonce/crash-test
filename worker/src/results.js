@@ -43,6 +43,8 @@ export function validateScorecard(card) {
   }
   const score = card.summary?.score;
   if (!Number.isInteger(score) || score < 0 || score > 100) return bad("summary.score must be 0–100");
+  const coverage = card.summary?.coverage;
+  if (coverage !== undefined && (!Number.isInteger(coverage) || coverage < 0 || coverage > 100)) return bad("summary.coverage must be 0–100");
   return { ok: true };
 }
 
@@ -70,12 +72,12 @@ export async function ingestScorecard(db, card, { source, now = new Date().toISO
   if (existing) return { id, created: false };
   const runStmt = db.prepare(
     `INSERT OR IGNORE INTO runs (id, network_url, network_sha256, model, router, judge, test_version, runs_per_test,
-       score, errors, started_at, finished_at, source, ingested_at, scorecard_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       score, coverage, errors, started_at, finished_at, source, ingested_at, scorecard_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     id, stored.target.network_url, stored.target.network_sha256 ?? null, stored.model.name, stored.model.routerHost ?? null,
     stored.judges?.length ? stored.judges.map((j) => j.name).join(", ") : (stored.judge?.name ?? null), stored.tester.test_version, stored.runs_per_test, stored.summary.score,
-    stored.summary.errors ?? 0, stored.started_at, stored.finished_at, source, now, JSON.stringify(stored),
+    stored.summary.coverage ?? null, stored.summary.errors ?? 0, stored.started_at, stored.finished_at, source, now, JSON.stringify(stored),
   );
   const resultStmts = resultRows(stored).map((r) => db.prepare(
     "INSERT OR IGNORE INTO results (run_id, test_id, verdict, pass_rate, passes, applicable, judged) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -139,7 +141,7 @@ export function compareRuns(before, now) {
   return { score_change, worse, gating, regressed: gating.length > 0 || score_change <= -SCORE_DROP };
 }
 
-const RUN_COLUMNS = "id, network_url, network_sha256, model, router, judge, test_version, runs_per_test, score, errors, started_at, finished_at, source, ingested_at";
+const RUN_COLUMNS = "id, network_url, network_sha256, model, router, judge, test_version, runs_per_test, score, coverage, errors, started_at, finished_at, source, ingested_at";
 
 /**
  * Recent runs, newest first, without the full scorecard.

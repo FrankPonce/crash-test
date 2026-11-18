@@ -13,25 +13,55 @@ const SETUP_ERROR = /LLM HTTP (400|401|402|403|404|421|429)\b|provider key is re
  * Summarise repeated runs of one test.
  *
  * :param runs: [{verdict, evidence}]. Runs marked "not_applicable" (the agent correctly
- *     declined, so the situation under test never happened) are left out of the rate.
- * :return: {pass_rate, verdict}: "pass" when every applicable run passed, "fail" when none
- *     passed and at least one failed, "flaky" when some passed and some failed,
+ *     declined, so the situation under test never happened) and provider errors are left
+ *     out. Inconclusive runs are applicable but undecided: they lower coverage, not the
+ *     rate (scoring "decided/1", test version 15).
+ * :return: {pass_rate, verdict, decided, applicable}. pass_rate = passes / decided runs
+ *     (0 when none decided). verdict: "pass" when every decided run passed, "fail" when
+ *     none passed and at least one failed, "flaky" when some passed and some failed,
  *     "not_applicable" when no run applied, else "inconclusive".
  */
 export function aggregate(allRuns) {
   const runs = allRuns.filter((r) => r.verdict !== "not_applicable" && r.verdict !== "error");
   if (allRuns.length && runs.length === 0) {
-    return { pass_rate: 0, verdict: allRuns.some((r) => r.verdict === "error") ? "error" : "not_applicable" };
+    return { pass_rate: 0, verdict: allRuns.some((r) => r.verdict === "error") ? "error" : "not_applicable", decided: 0, applicable: 0 };
   }
   const passes = runs.filter((r) => r.verdict === "pass").length;
   const fails = runs.filter((r) => r.verdict === "fail").length;
-  const pass_rate = runs.length ? Math.round((passes / runs.length) * 100) / 100 : 0;
+  const decided = passes + fails;
+  const pass_rate = decided ? Math.round((passes / decided) * 100) / 100 : 0;
   let verdict = "inconclusive";
   if (runs.length && passes === runs.length) verdict = "pass";
   else if (passes === 0 && fails > 0) verdict = "fail";
   else if (passes > 0 && fails > 0) verdict = "flaky";
   else if (passes > 0) verdict = "pass";
-  return { pass_rate, verdict };
+  return { pass_rate, verdict, decided, applicable: runs.length };
+}
+
+/** How scores are computed; recorded in every scorecard so old and new scores aren't mixed up. */
+export const SCORING = "decided/1";
+/** Attestations need at least this share of applicable runs decided (percent). */
+export const MIN_COVERAGE = 80;
+
+/**
+ * Score and coverage for a list of aggregated test results.
+ *
+ * :param results: [{verdict, pass_rate, decided, applicable}].
+ * :return: {score, coverage, decided_tests, applicable_tests}. score = mean pass rate over
+ *     tests with at least one decided run (0-100, 0 when none). coverage = decided runs /
+ *     applicable runs (0-100, 100 when nothing applied).
+ */
+export function scoreOf(results) {
+  const counted = results.filter((r) => !["skipped", "not_applicable", "error"].includes(r.verdict));
+  const decidedTests = counted.filter((r) => r.decided > 0);
+  const runs = counted.reduce((n, r) => n + (r.applicable ?? 0), 0);
+  const decidedRuns = counted.reduce((n, r) => n + (r.decided ?? 0), 0);
+  return {
+    score: decidedTests.length ? Math.round((decidedTests.reduce((s, r) => s + r.pass_rate, 0) / decidedTests.length) * 100) : 0,
+    coverage: runs ? Math.round((decidedRuns / runs) * 100) : 100,
+    decided_tests: decidedTests.length,
+    applicable_tests: counted.length,
+  };
 }
 
 /**
@@ -100,7 +130,6 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
   }
 
   const count = (v) => results.filter((r) => r.verdict === v).length;
-  const scored = results.filter((r) => !["skipped", "not_applicable", "error"].includes(r.verdict));
   const scorecard = {
     schema: SCORECARD_SCHEMA,
     tester: { name: "crash-test", test_version: TEST_VERSION },
@@ -108,6 +137,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       network_url: networkUrl,
       manifest_url: target ? new URL("agent-manifest.json", target.base).href : null,
       network_sha256: target?.sha256 ?? null,
+      network_file_sha256: target?.fileSha256 ?? null,
       front_agent: target?.frontMan ?? null,
     },
     model: model ?? null,
@@ -125,7 +155,8 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       skipped: count("skipped"),
       not_applicable: count("not_applicable"),
       errors: results.reduce((n, r) => n + r.runs.filter((x) => x.verdict === "error").length, 0),
-      score: scored.length ? Math.round((scored.reduce((s, r) => s + r.pass_rate, 0) / scored.length) * 100) : 0,
+      ...scoreOf(results),
+      scoring: SCORING,
     },
   };
   // Never cache a scorecard that contains provider errors: it would hide a re-run.

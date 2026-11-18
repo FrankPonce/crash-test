@@ -217,10 +217,10 @@ const HANDLERS = {
     const byNet = new Map();
     for (const r of runs) {
       if (!byNet.has(r.network_url)) byNet.set(r.network_url, []);
-      byNet.get(r.network_url).push({ model: r.model, score: r.score, finished_at: r.finished_at, test_version: r.test_version, run_id: r.id, static_only: r.model === STATIC_ONLY });
+      byNet.get(r.network_url).push({ model: r.model, score: r.score, coverage: r.coverage ?? null, finished_at: r.finished_at, test_version: r.test_version, run_id: r.id, static_only: r.model === STATIC_ONLY });
     }
     const networks = [...byNet].map(([network_url, models]) => ({ network_url, models }));
-    const lines = networks.map((n) => `${n.network_url}\n${n.models.map((m) => `  - ${m.static_only ? "files only (no model)" : m.model}: ${m.score}/100 (test v${m.test_version}, ${m.finished_at.slice(0, 10)})`).join("\n")}`);
+    const lines = networks.map((n) => `${n.network_url}\n${n.models.map((m) => `  - ${m.static_only ? "files only (no model)" : m.model}: ${m.score}/100${m.coverage == null ? "" : `, coverage ${m.coverage}%`} (test v${m.test_version}, ${m.finished_at.slice(0, 10)})`).join("\n")}`);
     return toolResult(networks.length ? `${networks.length} networks tested. Latest score per model:\n\n${lines.join("\n\n")}` : "No results stored yet.", { networks });
   },
 
@@ -237,13 +237,13 @@ const HANDLERS = {
     }
     const results = (await resultsFor(env.DB, [run.id])).get(run.id);
     const data = {
-      run_id: run.id, network_url: url, network_sha256: run.network_sha256, model: run.model, judge: run.judge, score: run.score,
+      run_id: run.id, network_url: url, network_sha256: run.network_sha256, model: run.model, judge: run.judge, score: run.score, coverage: run.coverage ?? null,
       test_version: run.test_version, runs_per_test: run.runs_per_test, finished_at: run.finished_at, errors: run.errors, source: run.source,
       tests: results.map((r) => ({ id: r.test_id, verdict: r.verdict, passes: r.passes, applicable: r.applicable, judged: r.judged })),
       full_scorecard: `/api/runs/${run.id}`,
     };
     const text = [
-      `${url} on ${run.model}: ${run.score}/100 (test v${run.test_version}, ${run.runs_per_test} runs per test, ${run.finished_at.slice(0, 16)}Z, network ${short(run.network_sha256)}${run.errors ? `, ${run.errors} provider-error runs left out` : ""})`,
+      `${url} on ${run.model}: ${run.score}/100${run.coverage == null ? "" : `, coverage ${run.coverage}%`} (test v${run.test_version}, ${run.runs_per_test} runs per test, ${run.finished_at.slice(0, 16)}Z, network ${short(run.network_sha256)}${run.errors ? `, ${run.errors} provider-error runs left out` : ""})`,
       ...results.map((r) => `- ${r.test_id}: ${r.verdict} (${pct(r)}${r.judged ? `, ${r.judged} judged by ${run.judge ?? "a judge model"}` : ""})`),
     ].join("\n");
     return toolResult(text, data);
@@ -352,7 +352,9 @@ const HANDLERS = {
     const jwks = await assetJson(env, ctx, "/.well-known/http-message-signatures-directory");
     const out = [];
     for (const a of entries) {
-      const jws = (await assetText(env, ctx, `/${a.jws}`)).trim();
+      // New entries: in-toto statement in a DSSE envelope (a.attestation); older ones: a JWS (a.jws).
+      const file = a.attestation ?? a.jws;
+      const signed = (await assetText(env, ctx, `/${file}`)).trim();
       let live = null;
       try {
         const { target } = await loadTarget(a.sub, { fetchImpl: ctx.fetchImpl });
@@ -360,12 +362,12 @@ const HANDLERS = {
       } catch {
         live = null;
       }
-      const v = await verifyAttestation(jws, { issuer: ctx.origin, jwks, now: ctx.now ?? Date.now(), expect: live ? { network_sha256: live } : {} });
+      const v = await verifyAttestation(signed, { issuer: ctx.origin, jwks, now: ctx.now ?? Date.now(), expect: live ? { network_sha256: live } : {} });
       const s = v.statement;
       out.push({
         network_url: a.sub, valid: v.ok, reason: v.ok ? null : v.reason, score: s?.score ?? null, model: s?.model?.name ?? null,
         issued_at: s?.iat ?? null, expires_at: s?.exp ?? null, network_sha256: s?.network_sha256 ?? null,
-        matches_live_network: live ? s?.network_sha256 === live : null, jws_url: `${ctx.origin}/${a.jws}`,
+        matches_live_network: live ? s?.network_sha256 === live : null, coverage: s?.coverage ?? null, format: s?.format ?? null, attestation_url: `${ctx.origin}/${file}`,
       });
     }
     const text = out.map((o) => `${o.valid ? "✓ Valid" : "✗ Not valid"} attestation for ${o.network_url}: score ${o.score} on ${o.model}, issued ${String(o.issued_at).slice(0, 10)}, expires ${String(o.expires_at).slice(0, 10)}. `
