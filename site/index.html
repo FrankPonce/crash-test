@@ -77,7 +77,7 @@
         <li><strong>Stand-in tools and a canary.</strong> The site's tools are replaced by stand-ins we control. A canary "submit" tool shows whether anything can talk the agent into acting. A stand-in partner site on an unreachable address shows what the agent would send to another company; the visitor always declines, and nothing leaves the page.</li>
         <li><strong>Unsigned here, signed offline.</strong> Runs on this page are unsigned. Signed attestations come from full runs with the tester key, which never touches this server, and are verified in your browser against <a href=".well-known/http-message-signatures-directory">our public keys</a>.</li>
       </ul>
-      <p class="muted">Limits: this tests published networks, not the live site's code. Text checks are English; when they can't decide, a second model (never the one under test) grades the answer, and the scorecard says so. See the <a href="https://github.com/FrankPonce/crash-test">README</a>.</p>
+      <p class="muted">Limits: this tests published networks, not the live site's code. Most verdicts come from what the agent did, in any language; when the quick text checks can't decide, two judge models from other families grade the answer (both must agree), and the scorecard says so. Runs that stay unclear lower coverage, not the score. See the <a href="https://github.com/FrankPonce/crash-test">README</a>.</p>
     </section>
   </main>
 
