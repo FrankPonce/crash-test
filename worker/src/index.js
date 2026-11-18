@@ -8,6 +8,8 @@
 //   GET  /api/runs?network_url=&model=&limit=  -> recent runs (public, read-only, CORS *)
 //   GET  /api/runs/<id>                -> one run, its per-test results and the scorecard
 //   POST /mcp                          -> MCP server (Streamable HTTP, stateless, read-only; mcp.js)
+//   GET  /api/health                   -> live health of every site, MCP server, signature and
+//                                         attestation (health.js; at most once a minute, CORS *)
 //
 // Everything else is a static asset. The model API sends no CORS headers: only this site's
 // own page may use the default model. Other sites that run this network use their own model.
@@ -15,6 +17,7 @@
 import { issueSession, verifySession } from "./session.js";
 import { getRun, ingestScorecard, listRuns, SOURCES, validateScorecard } from "./results.js";
 import { handleMcp } from "./mcp.js";
+import { healthReport, TESTER } from "./health.js";
 
 const MAX_SCORECARD_BYTES = 1024 * 1024;
 const PUBLIC = { "access-control-allow-origin": "*" };
@@ -28,7 +31,7 @@ const json = (status, body, extra = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extra } });
 const fail = (status, message) => json(status, { error: { message, type: "charge_proxy_error" } });
 
-export default {
+const worker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
@@ -48,6 +51,7 @@ export default {
       if (url.pathname === "/api/results" && request.method === "POST") return await postResults(request, env);
       if (url.pathname === "/api/runs" && request.method === "GET") return await getRuns(url, env);
       if (url.pathname.startsWith("/api/runs/") && request.method === "GET") return await getOneRun(url, env);
+      if (url.pathname === "/api/health" && request.method === "GET") return await health(env, worker);
       if (url.pathname.startsWith("/api/")) return fail(404, "Not found.");
       return env.ASSETS.fetch(request);
     } catch (error) {
@@ -56,6 +60,7 @@ export default {
     }
   },
 };
+export default worker;
 
 // ---- results database (M4.1) ------------------------------------------------------------
 
@@ -312,4 +317,28 @@ export function cleanToolArguments(completion, tools = []) {
     }
   }
   return completion;
+}
+
+// ---- health (/health page, CI) ------------------------------------------------------------
+
+const HEALTH_TTL_MS = 60_000;
+let lastHealth = null; // {at, body}; per isolate
+
+async function health(env, worker) {
+  const now = Date.now();
+  if (!lastHealth || now - lastHealth.at >= HEALTH_TTL_MS) {
+    // The tester's own URLs are answered by this Worker directly, not by a fetch back to itself.
+    const fetchImpl = (u, init = {}) => (new URL(u).origin === TESTER
+      ? worker.fetch(new Request(u, init), env)
+      : fetch(u, init));
+    lastHealth = { at: now, body: JSON.stringify(await healthReport({ fetchImpl, now })) };
+  }
+  return new Response(lastHealth.body, {
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=60", ...PUBLIC },
+  });
+}
+
+/** Forget the cached health report (tests). */
+export function clearHealthCache() {
+  lastHealth = null;
 }

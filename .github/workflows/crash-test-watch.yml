@@ -1,4 +1,4 @@
-# Daily regression watch: re-test the networks in watch.json when they changed or got
+# Daily regression watch and health check: re-test the networks in watch.json when they changed or got
 # stale, store the runs in the results database, and fail on a regression.
 #
 # Repository secrets (Settings → Secrets and variables → Actions):
@@ -51,3 +51,17 @@ jobs:
           fi
       - name: Run the watch
         run: node scripts/ci-watch.mjs ${{ steps.mode.outputs.flag }}
+
+  # Every live piece (sites, MCP servers, signatures, attestations) is up and valid, and no
+  # attestation expires within 7 days. Same checks as /health; needs no secrets.
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts || npm install --ignore-scripts
+      - name: Check health
+        run: node scripts/health.mjs

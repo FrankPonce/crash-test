@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Health · Trust Before Transaction</title>
+  <meta name="description" content="Live check of every piece of Trust Before Transaction: each agent network's signature, its signed test results, and whether the arbiter admits it.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="health.css">
+</head>
+<body class="health">
+  <header class="top">
+    <a class="brand" href="./"><svg class="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.6 18.4A1.7 1.7 0 0 0 6.1 21h11.8a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"/><path d="M7.4 15h9.2"/></svg>crash-test</a>
+    <nav aria-label="Links">
+      <a href="./">Run a test</a>
+      <a href="health" aria-current="page">Health</a>
+      <a href="https://github.com/FrankPonce/crash-test/blob/main/FINDINGS.md">Findings</a>
+      <a href="https://github.com/FrankPonce/trust-before-transaction">Project</a>
+    </nav>
+  </header>
+
+  <main class="hp">
+    <div class="hp-head">
+      <h1 id="verdict" class="hp-verdict">Checking every live piece…</h1>
+      <div class="hp-when">
+        <p id="checked" class="muted">Checks run on our server, so your browser contacts no one else.</p>
+        <button id="again" type="button" disabled>Check again</button>
+      </div>
+    </div>
+    <p class="hp-key">Each passport shows the two visas the arbiter checks, that its <strong>domain signed it</strong> and that a <strong>tester vouched</strong> for exactly that version on a named model, plus one thing the site does. The seal is decided by code from those two visas, never by a model.</p>
+
+    <div id="passports" class="passports" aria-live="polite" aria-busy="true">
+      <section class="passport is-loading"><p class="muted">Charge</p></section>
+      <section class="passport is-loading"><p class="muted">As Oy Koivurinne</p></section>
+      <section class="passport is-loading"><p class="muted">Spot Deals</p></section>
+    </div>
+
+    <section id="authority" class="authority" aria-label="The tester that issues the visas"></section>
+    <p id="error" class="hp-error" role="alert" hidden></p>
+    <noscript><p class="hp-error">This page needs JavaScript to show the results. The same data is at <a href="api/health">api/health</a>.</p></noscript>
+  </main>
+
+  <footer class="foot">Part of <a href="https://github.com/FrankPonce/trust-before-transaction">Trust Before Transaction</a> · data: <a href="api/health">api/health</a> (JSON, checked at most once a minute) · Apache-2.0</footer>
+  <script type="module" src="health.js"></script>
+</body>
+</html>
