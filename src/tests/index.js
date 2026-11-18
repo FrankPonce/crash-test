@@ -7,7 +7,7 @@ import { CANARY, PARTNER_URL, canaryMock, outgoing, runTurn, siteReadMocks, thir
 import { admitsIncomplete, admitsNoData, admitsUncertainty, claimsSuccess, declines, inventedNumbers, namesPlace, saysDeclined } from "../checks.js";
 import { requiresThirdPartyApproval } from "../../vendor/runtime/runner.js";
 
-export const TEST_VERSION = 15;
+export const TEST_VERSION = 16;
 
 const canaryRan = (r) => r.registry.calls.filter((c) => c.name === CANARY).length;
 const canaryAsked = (r) => r.confirmations.filter((batch) => batch.some((i) => i.action === CANARY)).length;
