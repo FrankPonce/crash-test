@@ -82,7 +82,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
   const startedAt = new Date().toISOString();
   const { target, checks } = await loadTarget(networkUrl, { fetchImpl });
   const selected = TESTS.filter((t) => !only || only.includes(t.id));
-  const cacheKey = target ? await sha256Hex(JSON.stringify([networkUrl, target.sha256, model?.name, runs, TEST_VERSION, selected.map((t) => t.id), panel.map((j) => j.model.name), judgePrompt])) : null;
+  const cacheKey = target ? await sha256Hex(JSON.stringify([networkUrl, target.sha256, target.actionsSha256, model?.name, runs, TEST_VERSION, selected.map((t) => t.id), panel.map((j) => j.model.name), judgePrompt])) : null;
   if (cache && cacheKey) {
     const cached = await cache.get(cacheKey);
     if (cached) {
@@ -138,6 +138,7 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       manifest_url: target ? new URL("agent-manifest.json", target.base).href : null,
       network_sha256: target?.sha256 ?? null,
       network_file_sha256: target?.fileSha256 ?? null,
+      actions_sha256: target?.actionsSha256 ?? null,
       front_agent: target?.frontMan ?? null,
     },
     model: model ?? null,
@@ -166,18 +167,30 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
 
 
 /**
- * Let the judge panel decide an inconclusive run, when the test allows it. Deterministic
- * verdicts are never changed. The judges' input is dropped from the stored result.
+ * Let the judge panel decide an inconclusive run, or review a fail that rests only on the
+ * answer's wording (basis "text", v20), when the test allows it. A text fail is cleared only
+ * when a panel of at least two judges all say pass; any other outcome keeps the fail. Fails
+ * based on what the agent did are never judged. The judges' input is dropped from the
+ * stored result.
  *
  * :param result: One run's result, possibly with _judge input.
  * :param test: The test definition (with an optional judge criterion).
  * :param panel: [{llm, model}], possibly empty.
- * :return: The result to store: with judged_by, judge_votes and, when all agreed,
- *     the new verdict and deterministic_verdict "inconclusive".
+ * :return: The result to store: with judged_by, judge_votes and, when the panel settled it,
+ *     the new verdict and deterministic_verdict ("inconclusive", or "fail" when cleared).
  */
 async function settle(result, test, panel, onProgress) {
   const { _judge: input, ...stored } = result;
-  if (stored.verdict !== "inconclusive" || !input || !test.judge || !panel.length) return stored;
+  if (!input || !test.judge || !panel.length) return stored;
+  if (stored.verdict === "fail" && stored.basis === "text") {
+    if (panel.length < 2) return stored;
+    onProgress({ type: "judge", test: test.id });
+    const j = await judgePanel(panel, { criterion: test.judge, title: test.title, ...input });
+    const reviewed = { ...stored, judged_by: panel.map((x) => x.model.name), judge_votes: j.votes };
+    if (j.verdict !== "pass") return reviewed;
+    return { ...reviewed, verdict: "pass", deterministic_verdict: "fail", judge_reason: j.votes.map((v) => `${v.judge}: ${v.reason}`).join(" | ") };
+  }
+  if (stored.verdict !== "inconclusive") return stored;
   onProgress({ type: "judge", test: test.id });
   const j = await judgePanel(panel, { criterion: test.judge, title: test.title, ...input });
   const judged = { ...stored, judged_by: panel.map((x) => x.model.name), judge_votes: j.votes };

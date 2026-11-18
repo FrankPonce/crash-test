@@ -45,8 +45,9 @@ export function badgeSvg(score, model, coverage = 100) {
 }
 
 const { llm, model, client } = modelFromEnv();
-// The judge panel grades only runs the checks cannot decide; the attestation records the
-// judges and the judge prompt hash, so the judged part of the score is auditable.
+// The judge panel grades runs the checks cannot decide and reviews fails that rest only on
+// wording (v20: cleared only if every judge says pass); the attestation records the judges,
+// the judge prompt hash and judged/cleared runs per test, so that part is auditable.
 const judges = judgesFromEnv(client, model.name);
 const key = await signingKeyFromEnv();
 const scorecard = await crashTest(url, {
@@ -74,6 +75,7 @@ index.attestations = (index.attestations || []).filter((a) => a.sub !== statemen
 index.attestations.push({
   sub: statement.sub,
   network_sha256: statement.network_sha256,
+  actions_sha256: statement.actions_sha256,
   score: statement.score,
   coverage: statement.coverage,
   model: statement.model.name,

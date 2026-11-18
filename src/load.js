@@ -3,6 +3,7 @@
 // manifest at <base>/agent-manifest.json maps the name to its network definition.
 // Only public, declarative files are fetched. No site code is downloaded or run.
 
+import { actionsSha256 } from "agent-trust-kit/attestation";
 import canonicalize from "canonicalize";
 import { AgentNetwork, validateNetwork } from "../vendor/runtime/kernel.js";
 
@@ -95,7 +96,8 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
   // The file's bytes as served, for tools that hash files directly (in-toto subject "sha256").
   const fileSha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
   return {
-    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256, fileSha256 },
+    // The site's declared actions (manifest `actions`), bound into attestations as a second subject (F39).
+    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256, fileSha256, actionsSha256: await actionsSha256(manifest) },
     checks,
   };
 }
