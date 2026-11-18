@@ -33,8 +33,8 @@ jobs:
       CRASHTEST_ROUTER: ${{ secrets.CRASHTEST_ROUTER }}
       INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm ci --ignore-scripts || npm install --ignore-scripts
