@@ -21,6 +21,14 @@ export async function attest(scorecard, { issuer, privateJwk, ttlDays = 30, now 
   if (!scorecard.target?.network_sha256 || staticTest?.verdict !== "pass") throw new Error("Not attesting: the network did not load and validate.");
   if (scorecard.summary?.errors) throw new Error(`Not attesting: ${scorecard.summary.errors} runs hit provider errors. Run again.`);
   const statement = attestationFromScorecard(scorecard, { issuer, now, ttlDays });
+  // Say which part of the score a judge panel decided, and with which models and prompt,
+  // so the signed claim separates deterministic verdicts from judged ones.
+  statement.judges = (scorecard.judges || []).map((j) => j.name);
+  statement.judge_prompt_sha256 = scorecard.judge_prompt_sha256 ?? null;
+  for (const t of scorecard.tests || []) {
+    const judged = (t.runs || []).filter((r) => r.deterministic_verdict === "inconclusive").length;
+    if (judged && statement.results[t.id]) statement.results[t.id].judged_runs = judged;
+  }
   return { jws: await signAttestation(statement, privateJwk), statement };
 }
 

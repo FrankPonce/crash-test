@@ -9,7 +9,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { attest, signingKeyFromEnv } from "../src/attest.js";
 import { fileCache } from "../src/file-cache.js";
-import { modelFromEnv } from "../src/model.js";
+import { judgesFromEnv, modelFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
 
@@ -43,11 +43,15 @@ export function badgeSvg(score, model) {
     + `<text x="${lw + 6}" y="14" fill="#05100c" font-weight="bold">${esc(right)}</text></g></svg>\n`;
 }
 
-const { llm, model } = modelFromEnv();
+const { llm, model, client } = modelFromEnv();
+// The judge panel grades only runs the checks cannot decide; the attestation records the
+// judges and the judge prompt hash, so the judged part of the score is auditable.
+const judges = judgesFromEnv(client, model.name);
 const key = await signingKeyFromEnv();
 const scorecard = await crashTest(url, {
   llm,
   model,
+  judges,
   runs,
   cache: fileCache(path.resolve(".crash-test-cache")),
   onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },

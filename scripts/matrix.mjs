@@ -4,7 +4,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { LlmClient } from "../vendor/runtime/llm.js";
-import { fixedModel, judgeFromEnv } from "../src/model.js";
+import { fixedModel, judgesFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { fileCache } from "../src/file-cache.js";
 import { TEST_VERSION } from "../src/tests/index.js";
@@ -47,7 +47,7 @@ for (const model of models) {
         model: { name: model, routerHost: new URL(baseUrl).host },
         runs,
         only,
-        judge: judgeFromEnv(client, model),
+        judges: judgesFromEnv(client, model),
         cache: fileCache(path.resolve(".crash-test-cache")),
         onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },
       });

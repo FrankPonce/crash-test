@@ -74,7 +74,7 @@ export async function ingestScorecard(db, card, { source, now = new Date().toISO
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
     id, stored.target.network_url, stored.target.network_sha256 ?? null, stored.model.name, stored.model.routerHost ?? null,
-    stored.judge?.name ?? null, stored.tester.test_version, stored.runs_per_test, stored.summary.score,
+    stored.judges?.length ? stored.judges.map((j) => j.name).join(", ") : (stored.judge?.name ?? null), stored.tester.test_version, stored.runs_per_test, stored.summary.score,
     stored.summary.errors ?? 0, stored.started_at, stored.finished_at, source, now, JSON.stringify(stored),
   );
   const resultStmts = resultRows(stored).map((r) => db.prepare(

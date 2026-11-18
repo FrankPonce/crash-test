@@ -2,13 +2,13 @@
   "attestations": [
     {
       "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
-      "network_sha256": "6ec92be11b8f9cb1ba5faa5765334aa1371ab15481423156f57c42b40a50260c",
+      "network_sha256": "4a094a76797a14ef36834b01eb86e3772ef1460cf3e092a66edf1226e60baf98",
       "score": 100,
       "model": "alibaba/qwen3.8-flash",
-      "iat": "2026-11-17T22:43:49.261Z",
-      "exp": "2026-12-17T22:43:49.261Z",
-      "jws": "attestations/charge-frankmp12357-workers-dev-charge-planner-6ec92be11b8f.jws",
-      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-6ec92be11b8f.scorecard.json",
+      "iat": "2026-11-18T01:04:21.172Z",
+      "exp": "2026-12-18T01:04:21.172Z",
+      "jws": "attestations/charge-frankmp12357-workers-dev-charge-planner-4a094a76797a.jws",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-4a094a76797a.scorecard.json",
       "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg"
     },
     {
@@ -21,6 +21,17 @@
       "jws": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.jws",
       "scorecard": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.scorecard.json",
       "badge": "badges/sketchy-frankmp12357-workers-dev-spot-deals.svg"
+    },
+    {
+      "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
+      "network_sha256": "c68925df2297e8e6c24f018ed5721235c6dce4db4bf7a0e27079880b013f8853",
+      "score": 100,
+      "model": "alibaba/qwen3.8-flash",
+      "iat": "2026-11-18T01:13:02.061Z",
+      "exp": "2026-12-18T01:13:02.061Z",
+      "jws": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-c68925df2297.jws",
+      "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-c68925df2297.scorecard.json",
+      "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging.svg"
     }
   ]
 }

@@ -47,7 +47,7 @@ async function chooseModel() {
     const { token } = await resp.json();
     const client = new LlmClient({ baseUrl: new URL("api/llm/v1", location.href).href.replace(/\/$/, ""), apiKey: token });
     const routerHost = `${location.host} (Workers AI)`;
-    return { llm: fixedModel(client, SITE_MODEL), model: { name: SITE_MODEL, routerHost }, judge: { llm: fixedModel(client, SITE_JUDGE), model: { name: SITE_JUDGE, routerHost } }, runs: 1 };
+    return { llm: fixedModel(client, SITE_MODEL), model: { name: SITE_MODEL, routerHost }, judges: [{ llm: fixedModel(client, SITE_JUDGE), model: { name: SITE_JUDGE, routerHost } }], runs: 1 };
   }
   const router = $("#router").value.trim().replace(/\/$/, "");
   const key = $("#key").value.trim();
@@ -113,14 +113,14 @@ function showScorecard(card) {
   const results = $("#results");
   results.hidden = false;
   $("#score").textContent = card.summary.score;
-  $("#score-meta").textContent = `${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test${card.judge ? ` · judge ${card.judge.name}` : ""} · unsigned`;
+  $("#score-meta").textContent = `${card.target.network_url} · ${card.model.name} via ${card.model.routerHost} · ${card.runs_per_test} run(s) per test${card.judges?.length ? ` · judge ${card.judges.map((j) => j.name).join(" + ")}` : ""} · unsigned`;
   $("#hash").textContent = card.target.network_sha256 ? `network sha256 ${card.target.network_sha256}` : "network did not load";
   const body = $("#tests");
   body.replaceChildren(...card.tests.map((t) => {
     const [cls, label] = VERDICT[t.verdict] ?? ["muted", t.verdict];
     const applicable = t.runs.filter((r) => !["not_applicable", "error"].includes(r.verdict));
     const passes = applicable.filter((r) => r.verdict === "pass").length;
-    const details = el("details", {}, el("summary", { text: "Evidence" }), ...t.runs.map((r, i) => el("p", {}, el("strong", { text: `Run ${i + 1}: ${VERDICT[r.verdict]?.[1] ?? r.verdict}. ` }), r.evidence, r.judged_by ? el("em", { text: ` Judged by ${r.judged_by}: ${r.judge_reason ?? r.judge_error}` }) : null)));
+    const details = el("details", {}, el("summary", { text: "Evidence" }), ...t.runs.map((r, i) => el("p", {}, el("strong", { text: `Run ${i + 1}: ${VERDICT[r.verdict]?.[1] ?? r.verdict}. ` }), r.evidence, r.judged_by ? el("em", { text: ` Judged by ${[].concat(r.judged_by).join(" + ")}: ${r.judge_reason ?? (r.judge_votes || []).map((v) => `${v.judge} ${v.verdict}${v.error ? ` (${v.error})` : ""}`).join(", ")}` }) : null)));
     return el("tr", {}, el("td", {}, el("strong", { text: t.title }), el("br"), el("code", { text: t.id })), el("td", {}, el("span", { class: `chip ${cls}`, text: label })), el("td", { text: applicable.length ? `${passes}/${applicable.length}` : "–" }), el("td", {}, details));
   }));
   const blob = new Blob([JSON.stringify(card, null, 2)], { type: "application/json" });
@@ -154,8 +154,18 @@ async function showAttestations(networkUrl, currentHash) {
       el("strong", { text: ok ? "✓ Signed attestation verified" : "✗ Attestation does not apply" }),
       el("p", { text: s ? `Score ${s.score} on ${s.model?.name} (${s.runs_per_test} runs per test), issued ${s.iat.slice(0, 10)}, valid until ${s.exp.slice(0, 10)}.` : "" }),
       ok ? null : el("p", { class: "muted", text: `Reason: ${v.reason}.` }),
+      s?.judges?.length ? el("p", { class: "muted", text: judgedNote(s) }) : null,
       el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: a.jws, text: "JWS" }), " · ", el("a", { href: a.scorecard, text: "full scorecard" }))));
   }
+}
+
+/** "2 runs were decided by the judge panel (…)", or a note that none were. */
+function judgedNote(s) {
+  const judged = Object.values(s.results || {}).reduce((n, r) => n + (r.judged_runs || 0), 0);
+  const panel = s.judges.join(" + ");
+  return judged
+    ? `${judged} unclear run${judged === 1 ? " was" : "s were"} decided by the judge panel (${panel}, both must agree); every other verdict is deterministic.`
+    : `Every verdict is deterministic; the judge panel (${panel}) was not needed.`;
 }
 
 function preset(event) {

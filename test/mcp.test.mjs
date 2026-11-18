@@ -158,7 +158,7 @@ test("get_attestation verifies the published JWS and compares it with the live n
   const offlineCheck = await call(env, "get_attestation", { network_url: CHARGE });
   const a = offlineCheck.structuredContent.attestations[0];
   assert.equal(a.valid, true, a.reason);
-  assert.equal(a.score, 100);
+  assert.equal(a.score, JSON.parse(await readFile(new URL("attestations/index.json", SITE), "utf8")).attestations.find((x) => x.sub === CHARGE).score);
   assert.equal(a.matches_live_network, null, "the live network could not be loaded");
   // Serve a different network at that URL: the attestation no longer applies.
   const fixture = (name) => readFile(new URL(`./fixtures/charge/${name}`, import.meta.url), "utf8");

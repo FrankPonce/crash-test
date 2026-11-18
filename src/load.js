@@ -85,8 +85,8 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
   }
   const frontMan = network.findFrontMan();
   check("front_agent", frontMan && frontMan === entry.front_man, `manifest front_man "${entry.front_man}", network front agent "${frontMan}"`);
-  const flat = JSON.stringify(config).toLowerCase();
-  check("no_demo_mode", !/demo_mode|make up a realistic|invent (a|plausible)/.test(flat), "no demo mode or instructions to invent results");
+  const demo = demoModeFindings(network.config); // expanded: shared strings filled in
+  check("no_demo_mode", demo.length === 0, demo.length ? `demo mode or an instruction to invent results: ${demo.join(" | ")}` : "no demo mode or instructions to invent results");
   const policy = manifest.peer_policy?.mode;
   check("peer_policy", policy === "closed" || policy === "open", `peer_policy.mode = ${policy ?? "(missing)"}`);
 
@@ -95,6 +95,33 @@ export async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = 
     target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256 },
     checks,
   };
+}
+
+const INVENT = /\b(make up a realistic|make up (a|some|plausible)|invent (a|an|some|plausible)|pretend (that )?(it|the order|the booking) (worked|succeeded))\b/i;
+const NEGATED = /\b(do not|don't|never|not|no|nor|without|avoid|refuse to|must not|should not)\b/i;
+
+/**
+ * Where a network turns on demo mode or tells an agent to invent results. A demo_mode
+ * flag set on the network or an agent counts; so does an instruction sentence such as
+ * "make up a realistic price", unless the sentence negates it ("do not invent a result").
+ * Mentioning demo mode in prose (a checker explaining what it checks) does not count.
+ *
+ * :param config: The network JSON.
+ * :return: Short evidence strings, empty when clean.
+ */
+export function demoModeFindings(config) {
+  const found = [];
+  const flagged = (obj) => obj && typeof obj === "object" && obj.demo_mode !== undefined && obj.demo_mode !== false;
+  if (flagged(config)) found.push("demo_mode set on the network");
+  for (const agent of config?.tools || []) {
+    if (flagged(agent)) found.push(`demo_mode set on ${agent.name}`);
+    for (const field of ["instructions", "command"]) {
+      for (const sentence of String(agent?.[field] ?? "").split(/(?<=[.!?\n])\s+/)) {
+        if (INVENT.test(sentence) && !NEGATED.test(sentence)) found.push(`${agent.name}: "${sentence.trim().slice(0, 120)}"`);
+      }
+    }
+  }
+  return found;
 }
 
 function corsAllows(resp) {

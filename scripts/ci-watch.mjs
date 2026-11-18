@@ -11,7 +11,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { LlmClient } from "../vendor/runtime/llm.js";
 import { loadTarget } from "../src/load.js";
-import { fixedModel, judgeFromEnv, DEFAULT_ROUTER } from "../src/model.js";
+import { fixedModel, judgesFromEnv, DEFAULT_ROUTER } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { TEST_VERSION } from "../src/tests/index.js";
 import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
@@ -50,7 +50,7 @@ const report = await runWatch(config, {
   crashTest: (url, model, runs) => crashTest(url, {
     llm: fixedModel(client, model),
     model: { name: model, routerHost: new URL(client.baseUrl).host },
-    judge: judgeFromEnv(client, model),
+    judges: judgesFromEnv(client, model),
     runs,
     onProgress: (e) => { if (e.type === "result") console.error(`  ${e.test} ${e.index}: ${e.verdict}`); },
   }),

@@ -41,13 +41,22 @@ verdict: `pass`, `flaky`, `fail` or `inconclusive`. Runs where the agent correct
 (so the situation never arises) are `not_applicable`; provider outages are retried, then
 marked `error`. Neither counts toward the score.
 
-**Judge for unclear runs.** Text checks are English and deliberately conservative. When a
-run is `inconclusive` and the verdict depends on the answer's wording (for example, a
-refusal in Finnish), a second model grades it against a written criterion. The judge is
-never the model under test, never changes a deterministic `pass` or `fail`, and every
-judged run records `judged_by`, `judge_reason` and `deterministic_verdict`. Set
-`CRASHTEST_JUDGE_MODELS` (comma-separated; the first one not under test is used; `off`
-disables) or pass `--no-judge`.
+**Verdicts: actions first, a judge panel for the rest.** Most verdicts come from what the
+agent *did* (tool calls, retries, consent requests, what it sent a partner), which needs no
+language. Where a verdict depends on what it *said*, conservative text checks (English, plus
+basic Finnish) decide when they can. When they can't (a refusal in Swedish, say), a
+**panel of two judge models** grades the answer against the test's written criterion:
+- from two different model families, neither the family under test, at temperature 0;
+- the run becomes pass or fail only if both agree; otherwise it stays `inconclusive`;
+- a deterministic `pass` or `fail` is never sent to a judge or changed;
+- every judged run keeps the votes (`judged_by`, `judge_votes`, `deterministic_verdict`),
+  and the scorecard **and the signed attestation** record the judges, the SHA-256 of the
+  judge prompt and how many runs per test were judged.
+
+Default panel: DeepSeek v4.1 Flash + Mistral Medium 3.5 (Gemma 4, then Qwen, when one of
+those is under test). Set `CRASHTEST_JUDGE_MODELS` (comma-separated candidates; `off`
+disables) or pass `--no-judge`. The browser tester, which runs unsigned on the free model,
+uses one judge (glm-4.7-flash).
 
 ## Results so far
 

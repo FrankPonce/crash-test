@@ -11,6 +11,78 @@ Agentic Web spec or runtime · **[eng]** engineering gotcha.
 
 ## Trust and agent behaviour
 
+### F37. A richer network exposed three more tester blind spots; a score drop was the tester's, not the site's **[eng] [pitch]**
+*18 Nov 2026 · attestation runs at test version 10 (`site/attestations/*-4a094a76*`, `*-256ae56f*`), fixed in version 11*
+
+After linking Charge to the housing site, both attested at **86** (Charge was 100). Every
+non-passing run turned out to be a checker problem:
+1. **Finnish answers.** Qwen answered Charge's English question in Finnish, correctly
+   ("Sinä hylkäsit yhteydenoton … varaustasi ei kysytty": you declined, so nothing was asked).
+   Attestations are deliberately judge-free, so these were "unclear". The checks now
+   include basic Finnish refusal and "couldn't" phrases. (The Finnish was also garbled with
+   stray Turkish and English tokens, "doğal", "chain": a model-quality signal worth watching.)
+2. **Numbers the network publishes.** The housing site states "22 kW between 22:00 and
+   07:00" in its own instructions, so a partner can answer without site tools. The
+   grounding tests called those numbers invented. A network's own published instructions
+   now count as a source: they are the publisher's public claims, visible in the network file.
+3. **Times read as places.** "night-slot requests (22:00–07:00" was read as "slot 00". The
+   place check now ignores times, amounts and numbers the sources already contain.
+
+Lesson, again (F11, F18, F29, F35): every new kind of network finds new checker bugs, so a
+score change must be explained before it's published. Here, publishing 86 would have
+been wrong.
+
+*Update (version 12):* the next run scored Charge 95 with no failures: two more correct
+Finnish answers ("tuntematon … saattoi lähteä tai olla lähtemättä", "vain osittaisdataa")
+that the new Finnish phrases didn't cover. Added Finnish uncertainty and "partial" phrases.
+After this, unclear runs stay unclear: tuning the checks to one model's Finnish has no end,
+and the judge (outside attestations) covers the rest. Qwen's Finnish keeps containing stray
+tokens from other scripts (Turkish, Arabic): a model-quality issue to mention to Otari.
+
+*Design change (version 13):* rather than keep adding phrases per language, an
+inconclusive run now goes to a **panel of two judges from different model families**,
+neither the family under test, at temperature 0, and is settled only when both agree.
+The signed attestation names the judges, the judge prompt's SHA-256 and how many runs per
+test were judged, so the score stays auditable. The word lists stay as a first pass.
+First result: both sites attest at **100**, each with one judged run (both judges agreed).
+On Charge, Qwen refused the flight booking **in Chinese** ("那件我做不了", "I can't do
+that"), for an English question on a Finnish site. No word list would have caught that,
+which is the case for the panel. Qwen 3.8 Flash's language drift (Finnish, Chinese, stray
+Turkish and Arabic tokens) is itself a finding: worth reporting to Otari / the model provider.
+
+### F36. Interop with the challenge's own site list: four of five sites can be called; the official one can't **[pitch] [spec]**
+*18 Nov 2026 · `docs/agentic_websites.md` at upstream `47cce0f`; crash-test file checks + the skill's `check_partner.mjs` from Charge's origin*
+
+| Site | File checks | Signed | Charge can call it |
+|---|---|---|---|
+| worldwideagenticweb.org (the challenge's own widget) | ✗ manifest and network send no CORS header | – | ✗ "Failed to fetch" in any other site's browser |
+| Shutdown Clerk | ✓ | – | ✓ (bridge via redirect) |
+| Plainly | ✓ | – | ✓ |
+| Agent Customs | ✓ | – | ✓ |
+| Agent Atlas | ✓ | – | ✓ (its agent forwards requests to its own MCP server with no second card, as the protocol allows) |
+| Charge / As Oy Koivurinne (ours) | ✓ | ✓ both | ✓ both ways |
+
+No listed site signs its network yet. The official network can be run on its own page but
+not by another site, which is the spec's central promise (§3.2); worth telling the
+organisers (constructively, before publishing). Behavioural tests on these sites need a
+model run and, per the roadmap, a note to each author first: not done yet.
+
+### F35. Running our tester on other people's sites found two false positives in it **[eng]**
+*18 Nov 2026 · same survey; regression tests in `test/engine.test.mjs`*
+
+Before the fix, two of the five listed sites "failed" for reasons that were ours:
+1. **Shutdown Clerk** "failed" `signed_network` with "signature is not JSON": Cloudflare
+   Pages answers a missing `.signature.json` with its HTML home page and status 200. Now an
+   HTML answer means "no signature file" (`not_applicable`), as a 404 does.
+2. **Agent Atlas** "failed" `no_demo_mode`: its instructions say *"do not invent a result"*
+   and our pattern matched "invent a". The check now looks for a real `demo_mode` flag, or
+   an instruction to invent that is not negated, in the expanded instructions (so an
+   instruction hidden in a shared string still counts).
+
+Our own two fixtures never exercised either case. Testing only your own sites hides your
+tester's bugs; a trust tool has to be run on strangers' sites before it says anything
+about them. TEST_VERSION 10.
+
 ### F33. One sentence of instructions fixed the partner leak; the tester proved it before and after **[pitch]**
 *18 Nov 2026 · `site/attestations/charge-frankmp12357-workers-dev-charge-planner-6ec92be11b8f.scorecard.json`; CLI runs on DeepSeek*
 

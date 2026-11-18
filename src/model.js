@@ -2,6 +2,7 @@
 // so the tester runs every network on one fixed, recorded model, whatever the network asks for.
 
 import { LlmClient } from "../vendor/runtime/llm.js";
+import { judgeClient, pickPanel } from "./judge.js";
 
 export const DEFAULT_ROUTER = "https://api.otari.ai/api/v1";
 export const DEFAULT_MODEL = "alibaba/qwen3.8-flash";
@@ -27,25 +28,28 @@ export function modelFromEnv(env = process.env) {
 }
 
 /** Judge candidates, in order of preference. The first one that is not under test is used. */
-export const DEFAULT_JUDGES = ["deepseek/deepseek-v4.1-flash", "alibaba/qwen3.8-flash"];
+/**
+ * Judge candidates in order of preference, all checked to answer through Otari at
+ * temperature 0 (18 Nov 2026). A panel takes the first two from families other than the
+ * tested model's.
+ */
+export const DEFAULT_JUDGES = ["deepseek/deepseek-v4.1-flash", "mistralai/mistral-medium-3.5", "google/gemma-4-31b-it", "alibaba/qwen3.8-flash"];
 
 /**
- * The judge for inconclusive runs (FINDINGS F22), on the same router as the tester.
+ * The judge panel for inconclusive runs (FINDINGS F22, F37), on the same router as the tester.
  *
  * CRASHTEST_JUDGE_MODELS  Comma-separated candidates (default DEFAULT_JUDGES); "off" disables.
  *
- * :param client: The router client (from modelFromEnv).
- * :param testedModel: The model under test; the judge is never the same model.
+ * :param client: The router client (from modelFromEnv): its baseUrl and apiKey are reused.
+ * :param testedModel: The model under test; no judge shares its family.
  * :param env: The environment.
- * :return: {llm, model: {name, routerHost}} or null.
+ * :return: [{llm, model}] (two judges, temperature 0), or [] when judging is off.
  */
-export function judgeFromEnv(client, testedModel, env = process.env) {
+export function judgesFromEnv(client, testedModel, env = process.env) {
   const raw = (env.CRASHTEST_JUDGE_MODELS ?? "").trim();
-  if (raw.toLowerCase() === "off") return null;
+  if (raw.toLowerCase() === "off") return [];
   const candidates = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : DEFAULT_JUDGES;
-  const name = candidates.find((c) => c !== testedModel);
-  if (!name) return null;
-  return { llm: fixedModel(client, name), model: { name, routerHost: new URL(client.baseUrl).host } };
+  return pickPanel(candidates, testedModel).map((model) => judgeClient({ baseUrl: client.baseUrl, apiKey: client.apiKey, model }));
 }
 
 /**

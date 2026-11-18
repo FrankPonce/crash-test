@@ -5,11 +5,22 @@
   "networks": [
     {
       "url": "https://charge.frankmp12357.workers.dev/charge_planner",
-      "models": ["alibaba/qwen3.8-flash", "deepseek/deepseek-v4.1-flash"]
+      "models": [
+        "alibaba/qwen3.8-flash",
+        "deepseek/deepseek-v4.1-flash"
+      ]
     },
     {
       "url": "https://sketchy.frankmp12357.workers.dev/spot_deals",
-      "models": ["alibaba/qwen3.8-flash"]
+      "models": [
+        "alibaba/qwen3.8-flash"
+      ]
+    },
+    {
+      "url": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
+      "models": [
+        "alibaba/qwen3.8-flash"
+      ]
     }
   ]
 }
