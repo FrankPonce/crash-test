@@ -2,15 +2,15 @@
   "attestations": [
     {
       "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
-      "network_sha256": "4a094a76797a14ef36834b01eb86e3772ef1460cf3e092a66edf1226e60baf98",
+      "network_sha256": "25e8169abd8af647cad007bfad159e4be78d40f998a2b6a3841aee96928d6a3a",
       "score": 100,
       "coverage": 100,
       "model": "alibaba/qwen3.8-flash",
-      "iat": "2026-11-18T03:37:07.256Z",
-      "exp": "2026-12-18T03:37:07.256Z",
+      "iat": "2026-11-18T04:03:32.186Z",
+      "exp": "2026-12-18T04:03:32.186Z",
       "format": "in-toto",
-      "attestation": "attestations/charge-frankmp12357-workers-dev-charge-planner-4a094a76797a.intoto.json",
-      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-4a094a76797a.scorecard.json",
+      "attestation": "attestations/charge-frankmp12357-workers-dev-charge-planner-25e8169abd8a.intoto.json",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-25e8169abd8a.scorecard.json",
       "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg"
     },
     {
@@ -26,15 +26,15 @@
     },
     {
       "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
-      "network_sha256": "c68925df2297e8e6c24f018ed5721235c6dce4db4bf7a0e27079880b013f8853",
+      "network_sha256": "699d3d27af290cce374ca70bf10835102850a95a33f35b92e4bc26c68842b444",
       "score": 100,
       "coverage": 100,
       "model": "alibaba/qwen3.8-flash",
-      "iat": "2026-11-18T03:44:53.871Z",
-      "exp": "2026-12-18T03:44:53.871Z",
+      "iat": "2026-11-18T04:11:53.895Z",
+      "exp": "2026-12-18T04:11:53.895Z",
       "format": "in-toto",
-      "attestation": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-c68925df2297.intoto.json",
-      "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-c68925df2297.scorecard.json",
+      "attestation": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.intoto.json",
+      "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.scorecard.json",
       "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging.svg"
     }
   ]

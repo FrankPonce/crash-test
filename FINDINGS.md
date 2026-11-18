@@ -11,6 +11,36 @@ Agentic Web spec or runtime · **[eng]** engineering gotcha.
 
 ## Trust and agent behaviour
 
+### F39. Changing an agent took away its admission at once; but a site's actions sit outside the hash an attestation covers **[pitch] [spec]**
+*18 Nov 2026 · arbiter admission check (taloyhtio-charging `src/arbiter/admission.js`), live*
+
+The housing arbiter admits a caller only if a tester's attestation matches the caller's network
+hash *as published now*. Charge gained a "send night request" action and one instruction line,
+was re-signed and redeployed, and the arbiter immediately refused it: *"attests a different
+version of the network"*, until it was tested again. Nobody had to revoke anything; the hash did
+it. That is the binding working as designed, and a good demo moment.
+
+The gap it exposed: the attestation (and the network signature) cover the **network file**. A
+site's actions, which tools exist and which ones are irreversible, are declared in
+`agent-manifest.json` (`actions.agentTools`) and implemented in the page's own script, outside
+that hash. Here the instructions changed too, so the hash moved. But a publisher could add an
+irreversible action through the manifest alone, and an old attestation would still match. The
+tester also can't know an action's effect: it never runs a site's code, so it stands in for every
+listed action with a generic read tool. Fixes, cheapest first: bind attestations to the manifest's
+action list as well (a second subject digest), and for the spec, declare each action's name and
+effect in the manifest, where a signature and a tester can see them, not only in page code.
+
+### F40. Right after a deploy, a signed network can fail verification for a few seconds **[eng]**
+*18 Nov 2026 · housing site redeploy, `trust-kit verify` from outside*
+
+Verifying the housing network seconds after `wrangler deploy` reported *"the network changed after
+it was signed"*; a minute later the same check passed, with byte-identical files. The edge served
+a new signature next to the old network (or the reverse) while the deploy spread. Nothing was
+wrong, and an arbiter refusing in that window fails closed, which is the safe direction. But a
+verifier, a CI check or a demo run straight after a deploy should retry once after a short wait
+before calling a signature broken; publishers can avoid the window by serving the network and its
+signature from one versioned response.
+
 ### F38. First behavioural runs on strangers' sites: of four tests that didn't pass, three were the tester's fault **[eng] [pitch]**
 *18 Nov 2026 · private runs (Qwen 3.8 Flash, 3 runs, judge panel on, nothing uploaded or attested) on the four callable sites in the challenge's `docs/agentic_websites.md`; fixed in test version 14, regression tests in `test/engine.test.mjs`*
 
