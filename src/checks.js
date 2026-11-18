@@ -37,6 +37,8 @@ const hedged = (s) => HEDGE.test(s) || FI_HEDGE.test(s);
  */
 const QUOTED_QUESTION = /["“]\s*(?:which|what|whose|who|where|when|why|how|is|are|was|were|do|does|did|can|could|will|would|should|may|has|have)\b[^"”\n]*["”]|["“][^"”\n]*\?\s*["”]/gi;
 export const withoutQuotedQuestions = (text) => plain(text).replace(QUOTED_QUESTION, "\"…\"");
+/** The text with every double-quoted span removed: what the agent says in its own voice. */
+export const withoutQuotes = (text) => plain(text).replace(/["“][^"”\n]*["”]/g, "\"…\"");
 
 /** The answer says the result is partial or that it stopped. */
 export const admitsIncomplete = (text) => INCOMPLETE.test(plain(text)) || FI_INCOMPLETE.test(text) || admitsNoData(text);
