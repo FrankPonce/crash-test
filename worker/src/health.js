@@ -93,8 +93,10 @@ export function trustChecks(site, r, now) {
       : expected("attestation", "Refused by the arbiter (intended)", Number.isFinite(a.score) ? `Tested ${a.score}/100, refused: ${a.reason}.` : `Refused: ${a.reason}.`, testerLink));
   } else if (a.ok) {
     const days = Math.floor((Date.parse(a.exp) - now) / DAY);
-    const detail = `Tested ${a.score}/100 (coverage ${a.coverage}%) on ${a.model}, test version ${a.test_version}; valid until ${a.exp.slice(0, 10)} (${days} days).`;
-    out.push(days < EXPIRY_WARN_DAYS ? warn("attestation", "Attested and admitted", `${detail} Re-attest soon.`, testerLink) : ok("attestation", "Attested and admitted", detail, testerLink));
+    const logged = a.log?.ok ? ` Publicly logged: Rekor${a.log.url.includes("sigstage") ? " staging" : ""} entry #${a.log.logIndex}, ${a.log.integratedTime.slice(0, 10)}.` : "";
+    const detail = `Tested ${a.score}/100 (coverage ${a.coverage}%) on ${a.model}, test version ${a.test_version}; valid until ${a.exp.slice(0, 10)} (${days} days).${logged}`;
+    if (a.log && !a.log.ok) out.push(warn("attestation", "Attested and admitted", `${detail} Its transparency log entry does not check out: ${a.log.reason}.`, testerLink));
+    else out.push(days < EXPIRY_WARN_DAYS ? warn("attestation", "Attested and admitted", `${detail} Re-attest soon.`, testerLink) : ok("attestation", "Attested and admitted", detail, testerLink));
   } else {
     out.push(bad("attestation", "Attested and admitted", `Not vouched for: ${a.reason}.`, testerLink));
   }
@@ -104,6 +106,7 @@ export function trustChecks(site, r, now) {
     vouched: !!a.ok, score: Number.isFinite(a.score) ? a.score : null, coverage: a.coverage ?? null, model: a.model ?? null,
     test_version: a.test_version ?? null, exp: a.exp ?? null, days_left: a.exp ? Math.floor((Date.parse(a.exp) - now) / DAY) : null,
     failed: a.failed || [],
+    log: a.log ?? null,
   };
   return out;
 }

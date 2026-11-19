@@ -408,6 +408,11 @@ async function sha256Hex(text) {
 async function canonicalHash(value) {
   return sha256Hex(canonicalJson(value));
 }
+function base64(bytes) {
+  let s = "";
+  for (const b of new Uint8Array(bytes)) s += String.fromCharCode(b);
+  return btoa(s);
+}
 
 // node_modules/jose/dist/webapi/lib/buffer_utils.js
 var encoder = new TextEncoder();
@@ -1555,11 +1560,11 @@ async function loadTarget(networkUrl, { fetchImpl = globalThis.fetch } = {}) {
   check("no_demo_mode", demo.length === 0, demo.length ? `demo mode or an instruction to invent results: ${demo.join(" | ")}` : "no demo mode or instructions to invent results");
   const policy = manifest.peer_policy?.mode;
   check("peer_policy", policy === "closed" || policy === "open", `peer_policy.mode = ${policy ?? "(missing)"}`);
-  const sha256 = await sha256Hex2(canonicalize(config));
+  const sha2562 = await sha256Hex2(canonicalize(config));
   const fileSha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
   return {
     // The site's declared actions (manifest `actions`), bound into attestations as a second subject (F39).
-    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256, fileSha256, actionsSha256: await actionsSha256(manifest) },
+    target: { networkUrl, base, name, manifest, entry, config, network, frontMan, hoconUrl, sha256: sha2562, fileSha256, actionsSha256: await actionsSha256(manifest) },
     checks
   };
 }
@@ -3329,6 +3334,122 @@ function fixedModel(client, name) {
   return { chat: (request) => client.chat({ ...request, model: name }) };
 }
 
+// node_modules/agent-trust-kit/src/rekor.js
+var enc2 = new TextEncoder();
+var REKOR = Object.freeze({
+  production: "https://rekor.sigstore.dev",
+  staging: "https://rekor.sigstage.dev"
+});
+var REKOR_KEYS = Object.freeze({
+  "https://rekor.sigstore.dev": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==",
+  "https://rekor.sigstage.dev": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEDODRU688UYGuy54mNUlaEBiQdTE9nYLr0lg6RXowI/QV/RE1azBn4Eg5/2uTOMbhB1/gfcHzijzFi9Tk+g1Prg=="
+});
+function ed25519Pem(publicJwk) {
+  if (publicJwk?.kty !== "OKP" || publicJwk.crv !== "Ed25519" || !publicJwk.x) throw new Error("An Ed25519 public JWK is required.");
+  const prefix = Uint8Array.from([48, 42, 48, 5, 6, 3, 43, 101, 112, 3, 33, 0]);
+  const raw = fromBase64(publicJwk.x);
+  const der = new Uint8Array(prefix.length + raw.length);
+  der.set(prefix);
+  der.set(raw, prefix.length);
+  return `-----BEGIN PUBLIC KEY-----
+${base64(der).match(/.{1,64}/g).join("\n")}
+-----END PUBLIC KEY-----
+`;
+}
+var sha256 = async (bytes) => new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+var hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+var fromHex = (h) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
+var concat2 = (...parts) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
+};
+var sameBytes = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+async function rootFromInclusionProof(index, size, leafHash, path) {
+  if (!(index >= 0 && index < size)) throw new Error("leaf index outside the tree");
+  let fn = index, sn = size - 1, r = leafHash;
+  for (const p of path) {
+    if (sn === 0) throw new Error("inclusion proof is too long");
+    if (fn % 2 === 1 || fn === sn) {
+      r = await sha256(concat2([1], p, r));
+      if (fn % 2 === 0) {
+        do {
+          fn = Math.floor(fn / 2);
+          sn = Math.floor(sn / 2);
+        } while (fn % 2 === 0 && fn !== 0);
+      }
+    } else {
+      r = await sha256(concat2([1], r, p));
+    }
+    fn = Math.floor(fn / 2);
+    sn = Math.floor(sn / 2);
+  }
+  if (sn !== 0) throw new Error("inclusion proof is too short");
+  return r;
+}
+function derToRaw(der) {
+  let at = 2;
+  if (der[1] & 128) at += der[1] & 127;
+  const read = () => {
+    if (der[at] !== 2) throw new Error("bad DER signature");
+    const len = der[at + 1];
+    let v = der.slice(at + 2, at + 2 + len);
+    at += 2 + len;
+    while (v.length > 32 && v[0] === 0) v = v.slice(1);
+    const out = new Uint8Array(32);
+    out.set(v, 32 - v.length);
+    return out;
+  };
+  return concat2(read(), read());
+}
+async function verifyCheckpoint(checkpoint, rekorKeyBase64) {
+  const split = checkpoint.indexOf("\n\n");
+  if (split < 0) return { ok: false, reason: "checkpoint has no signature block" };
+  const text = checkpoint.slice(0, split + 1);
+  const [, sizeLine, rootLine] = text.split("\n");
+  const sigs = checkpoint.slice(split + 2).split("\n").filter((l) => l.startsWith("\u2014 "));
+  const key = await crypto.subtle.importKey("spki", fromBase64(rekorKeyBase64), { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  for (const line of sigs) {
+    const raw = fromBase64(line.split(" ").pop());
+    const ok = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, derToRaw(raw.slice(4)), enc2.encode(text)).catch(() => false);
+    if (ok) return { ok: true, size: Number(sizeLine), root: fromBase64(rootLine) };
+  }
+  return { ok: false, reason: "the checkpoint is not signed by the log's pinned key" };
+}
+async function verifyLogEntry(envelope, entry, { signerJwk = null, rekorKey = null } = {}) {
+  try {
+    const env = typeof envelope === "string" ? JSON.parse(envelope) : envelope;
+    const key = rekorKey ?? REKOR_KEYS[entry?.log];
+    if (!key) return { ok: false, reason: `no pinned key for the log ${entry?.log}` };
+    const bodyBytes = fromBase64(entry.body);
+    const body = JSON.parse(new TextDecoder().decode(bodyBytes));
+    if (body.kind !== "dsse") return { ok: false, reason: `log entry is of kind ${body.kind}, not dsse` };
+    const payloadHash = hex(await sha256(fromBase64(env.payload)));
+    if (body.spec?.payloadHash?.value !== payloadHash) return { ok: false, reason: "the log entry is for a different payload" };
+    const pem = signerJwk ? ed25519Pem(signerJwk) : null;
+    const matched = (body.spec.signatures || []).some((s) => env.signatures.some((e) => sameBytes(fromBase64(e.sig), fromBase64(s.signature))) && (!pem || new TextDecoder().decode(fromBase64(s.verifier)).trim() === pem.trim()));
+    if (!matched) return { ok: false, reason: signerJwk ? "the log entry is not signed with the expected key" : "the log entry has a different signature" };
+    const p = entry.inclusionProof;
+    const leaf = await sha256(concat2([0], bodyBytes));
+    const root = await rootFromInclusionProof(p.logIndex, p.treeSize, leaf, p.hashes.map(fromHex));
+    if (hex(root) !== p.rootHash) return { ok: false, reason: "the inclusion proof does not lead to the logged root" };
+    const cp = await verifyCheckpoint(p.checkpoint, key);
+    if (!cp.ok) return cp;
+    if (cp.size !== p.treeSize || hex(cp.root) !== p.rootHash) return { ok: false, reason: "the checkpoint is for a different tree" };
+    return { ok: true, log: entry.log, logIndex: entry.logIndex, integratedTime: new Date(entry.integratedTime * 1e3).toISOString() };
+  } catch (e) {
+    return { ok: false, reason: `log entry could not be checked: ${e.message}` };
+  }
+}
+function logEntryUrl(entry) {
+  const host = entry.log === REKOR.staging ? "https://search.sigstage.dev" : "https://search.sigstore.dev";
+  return `${host}/?logIndex=${entry.logIndex}`;
+}
+
 // site/src/main.js
 var SITE_MODEL = "@cf/openai/gpt-oss-20b";
 var SITE_JUDGE = "@cf/zai-org/glm-4.7-flash";
@@ -3470,6 +3591,7 @@ async function showAttestations(networkUrl, currentHash) {
       ok ? null : el("p", { class: "muted", text: `Reason: ${v.reason}.` }),
       s?.judges?.length ? el("p", { class: "muted", text: judgedNote(s) }) : null,
       s ? el("p", { class: "muted", text: actionsNote(s) }) : null,
+      a.log ? await logNote(a.log, signed) : el("p", { class: "muted", text: "Not on a public transparency log yet." }),
       el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: file, text: a.attestation ? "in-toto attestation (DSSE)" : "JWS" }), " \xB7 ", el("a", { href: a.scorecard, text: "full scorecard" }))
     ));
   }
@@ -3481,6 +3603,23 @@ function judgedNote(s) {
   if (!judged) return `Every verdict is deterministic; the judge panel (${panel}) was not needed.`;
   const clearedText = cleared ? ` Of those, ${cleared} ${cleared === 1 ? "was a fail" : "were fails"} based only on the answer's wording, cleared because every judge said it was a pass.` : "";
   return `${judged} run${judged === 1 ? " was" : "s were"} decided by the judge panel (${panel}, both must agree); every other verdict is deterministic.${clearedText}`;
+}
+async function logNote(log, signedEnvelope) {
+  let entry;
+  try {
+    entry = await (await fetch(log.entry, { cache: "no-store" })).json();
+  } catch {
+    return el("p", { class: "muted", text: "Logged publicly, but the log entry file could not be loaded here." });
+  }
+  const v = await verifyLogEntry(signedEnvelope, entry);
+  const which = log.url === REKOR.staging ? "Sigstore's public test log (staging)" : "Sigstore's public transparency log (Rekor)";
+  if (!v.ok) return el("p", { class: "muted", text: `Log entry does not check out: ${v.reason}.` });
+  return el(
+    "p",
+    { class: "muted" },
+    `Publicly logged in ${which} on ${v.integratedTime.slice(0, 10)}, so it can't be quietly changed or withdrawn; checked here: same attestation, in the log, signed by the log. `,
+    el("a", { href: logEntryUrl(entry), text: `Entry #${entry.logIndex}` })
+  );
 }
 function actionsNote(s) {
   if (!s.actions_sha256) return "Older format: this attestation does not cover the site's declared actions, so an arbiter using agent-trust-kit refuses it.";

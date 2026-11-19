@@ -12,7 +12,14 @@
       "format": "in-toto",
       "attestation": "attestations/charge-frankmp12357-workers-dev-charge-planner-25e8169abd8a.intoto.json",
       "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-25e8169abd8a.scorecard.json",
-      "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg"
+      "badge": "badges/charge-frankmp12357-workers-dev-charge-planner.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003307769,
+        "uuid": "108e9186e8c5677abd84dd04b5f1635b82801c62613a0799940b38a50585d59e02fded7d08c45dd0",
+        "integratedTime": "2026-11-19T18:24:43.000Z",
+        "entry": "attestations/charge-frankmp12357-workers-dev-charge-planner-25e8169abd8a.rekor.json"
+      }
     },
     {
       "sub": "https://sketchy.frankmp12357.workers.dev/spot_deals",
@@ -26,7 +33,14 @@
       "format": "in-toto",
       "attestation": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.intoto.json",
       "scorecard": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.scorecard.json",
-      "badge": "badges/sketchy-frankmp12357-workers-dev-spot-deals.svg"
+      "badge": "badges/sketchy-frankmp12357-workers-dev-spot-deals.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003308264,
+        "uuid": "108e9186e8c5677a4cc46728a8e9e33d1eddf4ed2e2b0b42b95607a710bc27a796555a439557beb3",
+        "integratedTime": "2026-11-19T18:24:44.000Z",
+        "entry": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-b59a3692e41f.rekor.json"
+      }
     },
     {
       "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
@@ -40,7 +54,14 @@
       "format": "in-toto",
       "attestation": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.intoto.json",
       "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.scorecard.json",
-      "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging.svg"
+      "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003309278,
+        "uuid": "108e9186e8c5677a401158e38f64ed172dbed4109b1e1b5003a27b2de2cdf909bf307cad10f67a60",
+        "integratedTime": "2026-11-19T18:24:47.000Z",
+        "entry": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.rekor.json"
+      }
     }
   ]
 }

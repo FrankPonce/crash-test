@@ -54,6 +54,13 @@ signed in a [DSSE](https://github.com/secure-systems-lab/dsse) envelope by the t
 URL and its hash; score, coverage, model and judges are in the predicate. Format details:
 [agent-trust-kit](https://github.com/FrankPonce/agent-trust-kit#attestation-format).
 
+Published attestations also go on **Sigstore's public transparency log** (Rekor), so the
+tester itself can be held to what it published: the entry fixes the time and the exact
+envelope, and nobody, the tester included, can quietly backdate, swap or withdraw it. The
+tester page checks each entry in your browser (inclusion proof and the log's signature);
+`scripts/log-attestations.mjs --rekor production` logs published ones, and
+`publish-attestation.mjs … --rekor production` logs a new one as it's published.
+
 **Verdicts: actions first, a judge panel for the rest.** Most verdicts come from what the
 agent *did* (tool calls, retries, consent requests, what it sent a partner), which needs no
 language. Where a verdict depends on what it *said*, conservative text checks (English, plus

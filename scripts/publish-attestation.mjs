@@ -1,7 +1,10 @@
 // Run the full crash-test on a network, sign the result with the tester key, and publish it
 // into the tester site (site/attestations, site/badges). Then deploy the site.
 //
-//   node --env-file=.env scripts/publish-attestation.mjs <network-url> [--runs 3]
+//   node --env-file=.env scripts/publish-attestation.mjs <network-url> [--runs 3] [--rekor production|staging]
+//
+// --rekor also logs the new attestation on Sigstore's public transparency log (public and
+// permanent on production; see scripts/log-attestations.mjs for already published ones).
 //
 // Needs CRASHTEST_API_KEY (model), CRASHTEST_SIGNING_KEY and CRASHTEST_ORIGIN (identity).
 // The private key never leaves this machine; only the JWS is published.
@@ -12,6 +15,8 @@ import { fileCache } from "../src/file-cache.js";
 import { judgesFromEnv, modelFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
+import { publicPart } from "agent-trust-kit/keys";
+import { logAttestation, rekorUrlOf } from "../src/transparency.js";
 
 const url = process.argv[2];
 const runsIdx = process.argv.indexOf("--runs");
@@ -86,6 +91,13 @@ index.attestations.push({
   scorecard: scorecardPath,
   badge: `badges/${slug(url)}.svg`,
 });
+// --rekor staging|production: also put it on Sigstore's public transparency log.
+const rekorChoice = process.argv.includes("--rekor") ? process.argv[process.argv.indexOf("--rekor") + 1] : null;
+if (rekorChoice) {
+  const entry = index.attestations.at(-1);
+  entry.log = await logAttestation(SITE, entry, await publicPart(key.privateJwk), rekorUrlOf(rekorChoice));
+  console.log(`Logged on ${entry.log.url} as entry #${entry.log.logIndex} at ${entry.log.integratedTime}.`);
+}
 index.attestations.sort((a, b) => a.sub.localeCompare(b.sub));
 await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`);
 // With INGEST_TOKEN set, the attested scorecard also goes into the results database.

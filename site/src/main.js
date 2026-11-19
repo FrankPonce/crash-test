@@ -10,6 +10,7 @@ import { loadTarget } from "../../src/load.js";
 import { fixedModel } from "../../src/model.js";
 import { TESTS } from "../../src/tests/index.js";
 import { verifyAttestation } from "agent-trust-kit/attestation";
+import { REKOR, logEntryUrl, verifyLogEntry } from "agent-trust-kit/rekor";
 
 const SITE_MODEL = "@cf/openai/gpt-oss-20b";
 // Grades unclear runs only (FINDINGS F22). A different model from SITE_MODEL, same free proxy.
@@ -159,6 +160,7 @@ async function showAttestations(networkUrl, currentHash) {
       ok ? null : el("p", { class: "muted", text: `Reason: ${v.reason}.` }),
       s?.judges?.length ? el("p", { class: "muted", text: judgedNote(s) }) : null,
       s ? el("p", { class: "muted", text: actionsNote(s) }) : null,
+      a.log ? await logNote(a.log, signed) : el("p", { class: "muted", text: "Not on a public transparency log yet." }),
       el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: file, text: a.attestation ? "in-toto attestation (DSSE)" : "JWS" }), " · ", el("a", { href: a.scorecard, text: "full scorecard" }))));
   }
 }
@@ -173,6 +175,25 @@ function judgedNote(s) {
     ? ` Of those, ${cleared} ${cleared === 1 ? "was a fail" : "were fails"} based only on the answer's wording, cleared because every judge said it was a pass.`
     : "";
   return `${judged} run${judged === 1 ? " was" : "s were"} decided by the judge panel (${panel}, both must agree); every other verdict is deterministic.${clearedText}`;
+}
+
+/**
+ * The attestation's entry on Sigstore's public transparency log, checked here in the browser:
+ * same envelope, inside the log's tree, tree root signed by the log's pinned key.
+ */
+async function logNote(log, signedEnvelope) {
+  let entry;
+  try {
+    entry = await (await fetch(log.entry, { cache: "no-store" })).json();
+  } catch {
+    return el("p", { class: "muted", text: "Logged publicly, but the log entry file could not be loaded here." });
+  }
+  const v = await verifyLogEntry(signedEnvelope, entry);
+  const which = log.url === REKOR.staging ? "Sigstore's public test log (staging)" : "Sigstore's public transparency log (Rekor)";
+  if (!v.ok) return el("p", { class: "muted", text: `Log entry does not check out: ${v.reason}.` });
+  return el("p", { class: "muted" },
+    `Publicly logged in ${which} on ${v.integratedTime.slice(0, 10)}, so it can't be quietly changed or withdrawn; checked here: same attestation, in the log, signed by the log. `,
+    el("a", { href: logEntryUrl(entry), text: `Entry #${entry.logIndex}` }));
 }
 
 /** Which site actions the attestation covers: a changed or added action takes it away. */

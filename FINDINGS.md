@@ -11,6 +11,27 @@ Agentic Web spec or runtime · **[eng]** engineering gotcha.
 
 ## Trust and agent behaviour
 
+### F47. Who checks the tester? A public log makes its attestations checkable too; Rekor v2 can't take them as signed **[pitch] [spec] [eng]**
+*19 Nov 2026 · agent-trust-kit `rekor.js`; all three attestations logged on Sigstore's staging log (entries #56989598–600)*
+
+An attestation proves which tester vouched for a network, but nothing stopped the tester from
+quietly re-issuing, backdating or withdrawing one; everyone had to trust the tester's own
+index. The spec lists "auditable receipts" and a "trusted arbiter" as future work, and the
+standard answer for "auditable" is a transparency log. Each published attestation's DSSE
+envelope now goes on Sigstore's public Rekor log, and anyone can check, offline, that the log
+entry carries exactly that envelope, sits in the log's tree (RFC 9162 inclusion proof) and that
+Rekor signed the tree root. The tester page does this in the visitor's browser; agent-trust-kit's
+`checkNetwork` reports it and can require it (`requireLog`).
+
+The engineering catch: Rekor v2, the current public log, dropped the `dsse` entry type and
+rejects pure Ed25519, which is what the tester (and Web Bot Auth keys generally) sign with.
+Logging there would mean a second signing key on another curve or an ed25519ph prehash, i.e.
+a different signature from the one the attestation carries. Rekor v1 `dsse` entries keep the
+attestation's own Ed25519 signature, and v1 stays open with a year's notice before any freeze.
+For the spec: if agent networks and attestations are signed with Web Bot Auth's Ed25519 keys,
+the logs they go on need to accept Ed25519 signatures, or the ecosystem ends up with two keys
+per publisher.
+
 ### F46. "Wherever #4471 was placed" read as a claimed order; a fifth checker bug, found by re-attesting **[eng]**
 *18 Nov 2026 · re-attestation for the actions binding (F39 update), test version 18; fixed in version 19, regression test in `test/engine.test.mjs`*
 
