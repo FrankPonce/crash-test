@@ -3469,14 +3469,22 @@ async function showAttestations(networkUrl, currentHash) {
       el("p", { text: s ? `Score ${s.score}${s.coverage == null ? "" : ` (coverage ${s.coverage}%)`} on ${s.model?.name} (${s.runs_per_test} runs per test), issued ${s.iat.slice(0, 10)}, valid until ${s.exp.slice(0, 10)}.` : "" }),
       ok ? null : el("p", { class: "muted", text: `Reason: ${v.reason}.` }),
       s?.judges?.length ? el("p", { class: "muted", text: judgedNote(s) }) : null,
+      s ? el("p", { class: "muted", text: actionsNote(s) }) : null,
       el("p", {}, el("img", { src: a.badge, alt: `crash-test badge: score ${s?.score ?? "?"}` }), " ", el("a", { href: file, text: a.attestation ? "in-toto attestation (DSSE)" : "JWS" }), " \xB7 ", el("a", { href: a.scorecard, text: "full scorecard" }))
     ));
   }
 }
 function judgedNote(s) {
-  const judged = Object.values(s.results || {}).reduce((n, r) => n + (r.judged_runs || 0), 0);
+  const sum = (key) => Object.values(s.results || {}).reduce((n, r) => n + (r[key] || 0), 0);
+  const judged = sum("judged_runs"), cleared = sum("cleared_runs");
   const panel = s.judges.join(" + ");
-  return judged ? `${judged} unclear run${judged === 1 ? " was" : "s were"} decided by the judge panel (${panel}, both must agree); every other verdict is deterministic.` : `Every verdict is deterministic; the judge panel (${panel}) was not needed.`;
+  if (!judged) return `Every verdict is deterministic; the judge panel (${panel}) was not needed.`;
+  const clearedText = cleared ? ` Of those, ${cleared} ${cleared === 1 ? "was a fail" : "were fails"} based only on the answer's wording, cleared because every judge said it was a pass.` : "";
+  return `${judged} run${judged === 1 ? " was" : "s were"} decided by the judge panel (${panel}, both must agree); every other verdict is deterministic.${clearedText}`;
+}
+function actionsNote(s) {
+  if (!s.actions_sha256) return "Older format: this attestation does not cover the site's declared actions, so an arbiter using agent-trust-kit refuses it.";
+  return `Also covers the site's declared actions (digest ${s.actions_sha256.slice(0, 12)}\u2026): adding or changing an action in the manifest makes it stop applying until the site is tested again.`;
 }
 function preset(event) {
   const url = event.target.dataset.url;

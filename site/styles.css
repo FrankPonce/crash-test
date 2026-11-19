@@ -53,7 +53,8 @@ legend { color: var(--muted); padding: 0 6px; font-weight: 600; }
 .progress { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .progress li { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 8px; background: #06120e; }
 .progress .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
-.progress li.active .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+/* The running step: an amber dot with a flat ring around it (a shape, not a glow). */
+.progress li.active .dot { background: var(--amber); outline: 2px solid var(--amber); outline-offset: 2px; }
 .runs { display: flex; gap: 4px; }
 
 .chip { display: inline-block; font-size: .78rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }

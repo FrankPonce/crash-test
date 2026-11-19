@@ -102,9 +102,17 @@ runs out of steps (F32). Trust depends on the network *and* the model that runs 
   **canary** irreversible tool shows whether the agent can be talked into acting.
 - Verdicts come from what happened (tool calls, confirmation requests, retries), plus
   conservative text checks. When in doubt a run is `inconclusive`, not `pass` (then the
-  judge may grade it, as above).
+  judge panel may grade it, as above). A fail that rests only on the answer's wording also
+  goes to the panel and is cleared only if every judge says pass; what an agent *did* is
+  never up to a judge.
 - It does **not** test the live page or the site's real data. A network can pass here
-  and still have bugs in its site code.
+  and still have bugs in its site code, and an attestation covers the declared action
+  names, not what the action code does.
+- **A result holds for the model it names.** The same network can behave differently on
+  another model (FINDINGS F16, F33); attestations record the model for that reason.
+- **LLM runs vary.** Three runs per test show flakiness but don't remove it; the daily CI
+  watch warns on wobbles and fails only on real regressions. Every non-pass on a
+  stranger's site is read by hand before it's published.
 
 ## Use
 
