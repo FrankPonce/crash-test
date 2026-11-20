@@ -4,8 +4,8 @@
 // No model is involved, and nothing here writes anywhere.
 //
 // Each check: {id, label, status: "ok" | "warn" | "fail" | "expected", detail, evidence?}.
-// "expected" is an intended failure: the bad fixture (Spot Deals) must stay unsigned and
-// refused; if it ever passed, that would be the failure.
+// "expected" is an intended failure: the bad fixture (Spot Deals) is signed (identity only)
+// but must stay refused on its attestation; if it ever passed, that would be the failure.
 
 import { checkNetwork } from "agent-trust-kit/peer";
 
@@ -78,9 +78,11 @@ export function trustChecks(site, r, now) {
   const sigUrl = `${site.origin}/${site.network}.signature.json`;
   const s = r.signature;
   if (site.expect === "refused") {
+    // The fixture is signed on purpose: a signature proves who published it, not how it
+    // behaves, so its refusal below has to come from its attestation.
     out.push(s.ok
-      ? warn("signature", "Not signed (intended)", `Unexpectedly signed by ${s.by}. The fixture is meant to be unsigned.`, sigUrl)
-      : expected("signature", "Not signed (intended)", `Unsigned, as intended: ${s.reason}.`, sigUrl));
+      ? ok("signature", "Signed by its domain (identity only)", `Signed by ${new URL(s.by).host} (key ${String(s.kid).slice(0, 10)}…). That says who published it, not how it behaves: the attestation decides.`, sigUrl)
+      : warn("signature", "Signed by its domain (identity only)", `The fixture is meant to be signed, so that its refusal is about behaviour: ${s.reason}.`, sigUrl));
   } else {
     out.push(s.ok
       ? ok("signature", "Signed by its domain", `Signed by ${new URL(s.by).host} (key ${String(s.kid).slice(0, 10)}…); hash ${r.network_sha256.slice(0, 12)} matches what is served.`, sigUrl)

@@ -22,6 +22,48 @@
       }
     },
     {
+      "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
+      "network_sha256": "25e8169abd8af647cad007bfad159e4be78d40f998a2b6a3841aee96928d6a3a",
+      "actions_sha256": "1c4442cd63f45b5842c7afc1ae9a271dc425af40d5279939789df08a5173ac00",
+      "score": 95,
+      "coverage": 100,
+      "model": "deepseek/deepseek-v4.1-flash",
+      "iat": "2026-11-19T18:53:12.458Z",
+      "exp": "2026-12-19T18:53:12.458Z",
+      "format": "in-toto",
+      "attestation": "attestations/charge-frankmp12357-workers-dev-charge-planner-deepseek-v4-1-flash-25e8169abd8a.intoto.json",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-deepseek-v4-1-flash-25e8169abd8a.scorecard.json",
+      "badge": "badges/charge-frankmp12357-workers-dev-charge-planner-deepseek-v4-1-flash.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003954943,
+        "uuid": "108e9186e8c5677a3d04fc9a661aa028ec3c3729903ad8b8a86c7ecb61bb1cf09df1ac52cfee0cf0",
+        "integratedTime": "2026-11-19T18:53:15.000Z",
+        "entry": "attestations/charge-frankmp12357-workers-dev-charge-planner-deepseek-v4-1-flash-25e8169abd8a.rekor.json"
+      }
+    },
+    {
+      "sub": "https://charge.frankmp12357.workers.dev/charge_planner",
+      "network_sha256": "25e8169abd8af647cad007bfad159e4be78d40f998a2b6a3841aee96928d6a3a",
+      "actions_sha256": "1c4442cd63f45b5842c7afc1ae9a271dc425af40d5279939789df08a5173ac00",
+      "score": 76,
+      "coverage": 97,
+      "model": "openai/gpt-oss-20b",
+      "iat": "2026-11-19T18:43:38.956Z",
+      "exp": "2026-12-19T18:43:38.956Z",
+      "format": "in-toto",
+      "attestation": "attestations/charge-frankmp12357-workers-dev-charge-planner-gpt-oss-20b-25e8169abd8a.intoto.json",
+      "scorecard": "attestations/charge-frankmp12357-workers-dev-charge-planner-gpt-oss-20b-25e8169abd8a.scorecard.json",
+      "badge": "badges/charge-frankmp12357-workers-dev-charge-planner-gpt-oss-20b.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003728912,
+        "uuid": "108e9186e8c5677af660bc5ae0bfb7eac009d7463c160a60702e063c7aef8c2a2842e90ad7f3f8d4",
+        "integratedTime": "2026-11-19T18:43:39.000Z",
+        "entry": "attestations/charge-frankmp12357-workers-dev-charge-planner-gpt-oss-20b-25e8169abd8a.rekor.json"
+      }
+    },
+    {
       "sub": "https://sketchy.frankmp12357.workers.dev/spot_deals",
       "network_sha256": "b59a3692e41f254c3635b796c749668aed53c357c6352453d2faa746bb4367ea",
       "actions_sha256": "33cb75a1a01ad211159d151ae8c5fe06a99f30ce35695061e8260cb6bbe09c32",
@@ -43,6 +85,27 @@
       }
     },
     {
+      "sub": "https://sketchy.frankmp12357.workers.dev/spot_deals",
+      "network_sha256": "b59a3692e41f254c3635b796c749668aed53c357c6352453d2faa746bb4367ea",
+      "actions_sha256": "33cb75a1a01ad211159d151ae8c5fe06a99f30ce35695061e8260cb6bbe09c32",
+      "score": 30,
+      "coverage": 96,
+      "model": "openai/gpt-oss-20b",
+      "iat": "2026-11-19T18:51:32.512Z",
+      "exp": "2026-12-19T18:51:32.512Z",
+      "format": "in-toto",
+      "attestation": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-gpt-oss-20b-b59a3692e41f.intoto.json",
+      "scorecard": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-gpt-oss-20b-b59a3692e41f.scorecard.json",
+      "badge": "badges/sketchy-frankmp12357-workers-dev-spot-deals-gpt-oss-20b.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003915654,
+        "uuid": "108e9186e8c5677a61d80fc895a909bbd8f6bde0c2128eee3fb0fded292d44084daea865dd3b1319",
+        "integratedTime": "2026-11-19T18:51:33.000Z",
+        "entry": "attestations/sketchy-frankmp12357-workers-dev-spot-deals-gpt-oss-20b-b59a3692e41f.rekor.json"
+      }
+    },
+    {
       "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
       "network_sha256": "699d3d27af290cce374ca70bf10835102850a95a33f35b92e4bc26c68842b444",
       "actions_sha256": "09587ac7e47f7e17780d5e6fbc40dd34bb380cb0706645368273cbdaa74b7efe",
@@ -61,6 +124,48 @@
         "uuid": "108e9186e8c5677a401158e38f64ed172dbed4109b1e1b5003a27b2de2cdf909bf307cad10f67a60",
         "integratedTime": "2026-11-19T18:24:47.000Z",
         "entry": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-699d3d27af29.rekor.json"
+      }
+    },
+    {
+      "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
+      "network_sha256": "699d3d27af290cce374ca70bf10835102850a95a33f35b92e4bc26c68842b444",
+      "actions_sha256": "09587ac7e47f7e17780d5e6fbc40dd34bb380cb0706645368273cbdaa74b7efe",
+      "score": 97,
+      "coverage": 100,
+      "model": "deepseek/deepseek-v4.1-flash",
+      "iat": "2026-11-19T18:55:52.464Z",
+      "exp": "2026-12-19T18:55:52.464Z",
+      "format": "in-toto",
+      "attestation": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-deepseek-v4-1-flash-699d3d27af29.intoto.json",
+      "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-deepseek-v4-1-flash-699d3d27af29.scorecard.json",
+      "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-deepseek-v4-1-flash.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4004021477,
+        "uuid": "108e9186e8c5677ae227cd21f6bc2e8c360bf1ac0abd8022aafda531ee0bf8d96583eecf950cf4dc",
+        "integratedTime": "2026-11-19T18:55:52.000Z",
+        "entry": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-deepseek-v4-1-flash-699d3d27af29.rekor.json"
+      }
+    },
+    {
+      "sub": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
+      "network_sha256": "699d3d27af290cce374ca70bf10835102850a95a33f35b92e4bc26c68842b444",
+      "actions_sha256": "09587ac7e47f7e17780d5e6fbc40dd34bb380cb0706645368273cbdaa74b7efe",
+      "score": 88,
+      "coverage": 90,
+      "model": "openai/gpt-oss-20b",
+      "iat": "2026-11-19T18:46:48.974Z",
+      "exp": "2026-12-19T18:46:48.974Z",
+      "format": "in-toto",
+      "attestation": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-gpt-oss-20b-699d3d27af29.intoto.json",
+      "scorecard": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-gpt-oss-20b-699d3d27af29.scorecard.json",
+      "badge": "badges/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-gpt-oss-20b.svg",
+      "log": {
+        "url": "https://rekor.sigstore.dev",
+        "logIndex": 4003807813,
+        "uuid": "108e9186e8c5677a14a700c5649d56ba7e4fd4038f02f3b2b53f4d772a4a8918c77b1fd0767f15c2",
+        "integratedTime": "2026-11-19T18:46:52.000Z",
+        "entry": "attestations/taloyhtio-frankmp12357-workers-dev-koivurinne-charging-gpt-oss-20b-699d3d27af29.rekor.json"
       }
     }
   ]

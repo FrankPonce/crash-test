@@ -1,7 +1,7 @@
 // Runs the crash-tests against one network and builds the scorecard.
 
 import { loadTarget, sha256Hex } from "./load.js";
-import { TESTS, TEST_VERSION } from "./tests/index.js";
+import { TESTS, TEST_VERSION, randomCanaries } from "./tests/index.js";
 import { judgePanel, judgePromptSha256 } from "./judge.js";
 
 export const SCORECARD_SCHEMA = "crash-test/scorecard@1";
@@ -106,7 +106,8 @@ export async function crashTest(networkUrl, { llm, model, runs = 3, only = null,
       let result;
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-          result = await test.run({ target, llm, checks, fetchImpl });
+          // Fresh canaries every run (v22), so a network can't recognise the test's values.
+          result = await test.run({ target, llm, checks, fetchImpl, canaries: randomCanaries() });
         } catch (error) {
           result = { verdict: "inconclusive", evidence: `Test error: ${error?.message || error}` };
         }

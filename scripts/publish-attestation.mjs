@@ -12,7 +12,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { attest, signingKeyFromEnv } from "../src/attest.js";
 import { fileCache } from "../src/file-cache.js";
-import { judgesFromEnv, modelFromEnv } from "../src/model.js";
+import { DEFAULT_MODEL, judgesFromEnv, modelFromEnv } from "../src/model.js";
 import { crashTest } from "../src/run.js";
 import { uploadFromEnv, uploadScorecard } from "../src/upload.js";
 import { publicPart } from "agent-trust-kit/keys";
@@ -63,7 +63,11 @@ const scorecard = await crashTest(url, {
   cache: fileCache(path.resolve(".crash-test-cache")),
   onProgress: (e) => { if (e.type === "result") process.stderr.write(`  ${e.test} ${e.index}: ${e.verdict}\n`); },
 });
-const name = `${slug(url)}-${scorecard.target.network_sha256.slice(0, 12)}`;
+// One attestation per network × model. The default model keeps the plain names (published
+// links stay put); other models (CRASHTEST_MODEL) get their own files and badge.
+const modelSlug = model.name === DEFAULT_MODEL ? "" : `-${model.name.split("/").pop().replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+const name = `${slug(url)}${modelSlug}-${scorecard.target.network_sha256.slice(0, 12)}`;
+const badge = `badges/${slug(url)}${modelSlug}.svg`;
 const scorecardPath = `attestations/${name}.scorecard.json`;
 // in-toto Statement v1 + Test Result predicate, in a DSSE envelope (.intoto.json).
 const { envelope, statement } = await attest(scorecard, { ...key, url: `${new URL(key.issuer).origin}/${scorecardPath}` });
@@ -72,11 +76,11 @@ await mkdir(path.join(SITE, "attestations"), { recursive: true });
 await mkdir(path.join(SITE, "badges"), { recursive: true });
 await writeFile(path.join(SITE, "attestations", `${name}.intoto.json`), `${JSON.stringify(envelope, null, 2)}\n`);
 await writeFile(path.join(SITE, "attestations", `${name}.scorecard.json`), `${JSON.stringify(scorecard, null, 2)}\n`);
-await writeFile(path.join(SITE, "badges", `${slug(url)}.svg`), badgeSvg(statement.score, statement.model.name, statement.coverage));
+await writeFile(path.join(SITE, badge), badgeSvg(statement.score, statement.model.name, statement.coverage));
 
 const indexPath = path.join(SITE, "attestations", "index.json");
 const index = JSON.parse(await readFile(indexPath, "utf8").catch(() => '{"attestations":[]}'));
-index.attestations = (index.attestations || []).filter((a) => a.sub !== statement.sub);
+index.attestations = (index.attestations || []).filter((a) => !(a.sub === statement.sub && a.model === statement.model.name));
 index.attestations.push({
   sub: statement.sub,
   network_sha256: statement.network_sha256,
@@ -89,7 +93,7 @@ index.attestations.push({
   format: "in-toto",
   attestation: `attestations/${name}.intoto.json`,
   scorecard: scorecardPath,
-  badge: `badges/${slug(url)}.svg`,
+  badge,
 });
 // --rekor staging|production: also put it on Sigstore's public transparency log.
 const rekorChoice = process.argv.includes("--rekor") ? process.argv[process.argv.indexOf("--rekor") + 1] : null;
@@ -98,7 +102,7 @@ if (rekorChoice) {
   entry.log = await logAttestation(SITE, entry, await publicPart(key.privateJwk), rekorUrlOf(rekorChoice));
   console.log(`Logged on ${entry.log.url} as entry #${entry.log.logIndex} at ${entry.log.integratedTime}.`);
 }
-index.attestations.sort((a, b) => a.sub.localeCompare(b.sub));
+index.attestations.sort((a, b) => a.sub.localeCompare(b.sub) || (a.model === DEFAULT_MODEL ? -1 : b.model === DEFAULT_MODEL ? 1 : a.model.localeCompare(b.model)));
 await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`);
 // With INGEST_TOKEN set, the attested scorecard also goes into the results database.
 const upload = uploadFromEnv();

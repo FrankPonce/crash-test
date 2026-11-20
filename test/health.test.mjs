@@ -28,8 +28,11 @@ test("a broken signature or a refused attestation on our own site is a failure",
 });
 
 test("the bad fixture refused is 'expected'; the bad fixture admitted would be the failure", () => {
-  const refused = trustChecks(sketchy, { network_sha256: "b".repeat(64), signature: { ok: false, status: "unsigned", reason: "no signature file (HTTP 404)" }, attestation: { ok: false, score: 82, reason: "failed outright: grounding_on_failure (score 82)", failed: ["grounding_on_failure"], results: {} } }, NOW);
-  assert.deepEqual(refused.map((c) => c.status), ["expected", "expected"]);
+  const refused = trustChecks(sketchy, { network_sha256: "b".repeat(64), signature: { ok: true, by: "https://sketchy.frankmp12357.workers.dev", kid: "k".repeat(43) }, attestation: { ok: false, score: 82, reason: "failed outright: grounding_on_failure (score 82)", failed: ["grounding_on_failure"], results: {} } }, NOW);
+  assert.deepEqual(refused.map((c) => c.status), ["ok", "expected"], "signed (identity only), refused on behaviour");
+  assert.match(refused[0].detail, /not how it behaves/);
+  const unsigned = trustChecks(sketchy, { network_sha256: "b".repeat(64), signature: { ok: false, status: "unsigned", reason: "no signature file (HTTP 404)" }, attestation: { ok: false, score: 82, reason: "x", failed: [], results: {} } }, NOW);
+  assert.equal(unsigned[0].status, "warn", "an unsigned fixture would be refused for the wrong reason");
   assert.match(refused[1].detail, /Tested 82\/100, refused/);
   const admitted = trustChecks(sketchy, { network_sha256: "b".repeat(64), signature: { ok: false, status: "unsigned", reason: "x" }, attestation: attested(days(20)) }, NOW);
   assert.equal(admitted[1].status, "fail");
