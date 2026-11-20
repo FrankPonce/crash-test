@@ -7,7 +7,8 @@
       "url": "https://charge.frankmp12357.workers.dev/charge_planner",
       "models": [
         "alibaba/qwen3.8-flash",
-        "deepseek/deepseek-v4.1-flash"
+        "deepseek/deepseek-v4.1-flash",
+        "z-ai/glm-4.7-flash"
       ]
     },
     {
@@ -19,7 +20,8 @@
     {
       "url": "https://taloyhtio.frankmp12357.workers.dev/koivurinne_charging",
       "models": [
-        "alibaba/qwen3.8-flash"
+        "alibaba/qwen3.8-flash",
+        "openai/gpt-oss-20b"
       ]
     }
   ]
